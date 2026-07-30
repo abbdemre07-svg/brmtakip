@@ -88,29 +88,20 @@
         let currentModalImages = [];
         let currentModalIndex = 0;
 
-        function openImageModal(imgSrc, imgListJson = null) {
+        // Global nesne olarak saklayıp tıklama çakışmalarını tamamen önlüyoruz
+        window.openImageModalFromList = function(imgList, index) {
+            currentModalImages = imgList;
+            currentModalIndex = index;
+            
             const modal = document.getElementById('imageModal');
             const modalImg = document.getElementById('modalImageSrc');
-            
-            if (imgListJson) {
-                try {
-                    currentModalImages = JSON.parse(imgListJson);
-                } catch (e) {
-                    currentModalImages = [imgSrc];
-                }
-            } else {
-                currentModalImages = [imgSrc];
-            }
 
-            currentModalIndex = currentModalImages.indexOf(imgSrc);
-            if (currentModalIndex === -1) currentModalIndex = 0;
-
-            if (modal && modalImg) {
+            if (modal && modalImg && currentModalImages.length > 0) {
                 modalImg.src = currentModalImages[currentModalIndex];
-                modal.style.display = 'flex'; // Modalı aç
+                modal.style.display = 'flex';
                 updateModalNavButtons();
             }
-        }
+        };
 
         function navigateModalImage(direction) {
             if (currentModalImages.length <= 1) return;
@@ -129,6 +120,16 @@
             updateModalNavButtons();
         }
 
+        // Klavye ok tuşları desteği (İsteğe bağlı sağ/sol ok tuşlarıyla geçiş)
+        document.addEventListener('keydown', function(e) {
+            const modal = document.getElementById('imageModal');
+            if (modal && modal.style.display === 'flex') {
+                if (e.key === 'ArrowLeft') navigateModalImage(-1);
+                if (e.key === 'ArrowRight') navigateModalImage(1);
+                if (e.key === 'Escape') closeImageModal();
+            }
+        });
+
         function updateModalNavButtons() {
             const prevBtn = document.querySelector('.prev-btn');
             const nextBtn = document.querySelector('.next-btn');
@@ -139,26 +140,32 @@
                 nextBtn.style.display = 'none';
             } else {
                 prevBtn.style.display = 'flex';
-                nextBtn.style.display = 'flex';
+                prevBtn.style.display = 'flex';
             }
         }
 
         function closeImageModal() {
             const modal = document.getElementById('imageModal');
             if (modal) {
-                modal.style.display = 'none'; // Modalı kapat
+                modal.style.display = 'none';
             }
         }
 
-        // Örnek Tablo Render Fonksiyonu (Senin kodlarındaki renderMatrixTable mantığı)
+        // Örnek Tablo Render Fonksiyonu
         function renderMatrixTable(tasks) {
             const container = document.getElementById('matrixTableContainer');
             let html = '';
 
-            tasks.forEach(w => {
-                let imgHtml = w.images && w.images.length ? `<div class="img-preview-container">` + 
-                    w.images.map(img => `<img src="${img}" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; border-radius: 4px;" onclick='openImageModal(${JSON.stringify(img)}, ${JSON.stringify(JSON.stringify(w.images))})'>`).join('') + 
-                    `</div>` : '';
+            tasks.forEach((w, taskIndex) => {
+                let imgHtml = '';
+                if (w.images && w.images.length > 0) {
+                    imgHtml += `<div class="img-preview-container">`;
+                    w.images.forEach((img, imgIndex) => {
+                        // Güvenli dizi aktarımı için index bazlı yapı kullanıyoruz
+                        imgHtml += `<img src="${img}" style="width: 50px; height: 50px; object-fit: cover; cursor: pointer; border-radius: 4px;" onclick='window.openImageModalFromList(${JSON.stringify(w.images)}, ${imgIndex})'>`;
+                    });
+                    imgHtml += `</div>`;
+                }
 
                 html += `<div style="background:#fff; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:4px;">
                             <p><b>Görev:</b> ${w.title || 'İsimsiz'}</p>
@@ -169,7 +176,7 @@
             container.innerHTML = html;
         }
 
-        // Test amaçlı örnek veri (Kendi Firebase/Veritabanı verilerinle değiştirebilirsin)
+        // Test amaçlı örnek veri
         const sampleTasks = [
             {
                 title: "Saha Kontrolü",
