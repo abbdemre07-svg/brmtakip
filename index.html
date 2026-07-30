@@ -135,20 +135,45 @@
             justify-content: center; align-items: center; z-index: 10000; padding: 20px;
         }
         #imageModal.active { display: flex; }
+        .modal-content-wrap {
+            position: relative; max-width: 90%; max-height: 90%; display: flex; justify-content: center; align-items: center;
+        }
         #imageModal img {
-            max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+            max-width: 100%; max-height: 85vh; object-fit: contain; border-radius: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.5);
         }
         #imageModal .close-modal {
-            position: absolute; top: 20px; right: 25px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; background: rgba(0,0,0,0.4); width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid white;
+            position: absolute; top: -45px; right: 0; color: white; font-size: 30px; font-weight: bold; cursor: pointer; background: rgba(0,0,0,0.5); width: 35px; height: 35px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid white; z-index: 10001;
+        }
+        .modal-nav-btn {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.6); color: white; border: 2px solid white;
+            font-size: 24px; font-weight: bold; width: 50px; height: 50px; border-radius: 50%;
+            cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10001; transition: 0.2s;
+        }
+        .modal-nav-btn:hover { background: rgba(2, 132, 199, 0.8); }
+        #modalPrevBtn { left: -70px; }
+        #modalNextBtn { right: -70px; }
+        @media (max-width: 768px) {
+            #modalPrevBtn { left: 10px; }
+            #modalNextBtn { right: 10px; }
+        }
+        .modal-counter {
+            position: absolute; bottom: -35px; left: 50%; transform: translateX(-50%);
+            color: white; font-size: 0.9rem; font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 20px;
         }
     </style>
 </head>
 <body>
 
 <!-- RESİM BÜYÜTME MODAL YAPISI -->
-<div id="imageModal" onclick="closeImageModal()">
-    <span class="close-modal">&times;</span>
-    <img id="modalImageSrc" src="" alt="Büyük Görsel">
+<div id="imageModal">
+    <div class="modal-content-wrap">
+        <span class="close-modal" onclick="closeImageModal()">&times;</span>
+        <button id="modalPrevBtn" class="modal-nav-btn" onclick="prevModalImage()">&#10094;</button>
+        <img id="modalImageSrc" src="" alt="Büyük Görsel">
+        <button id="modalNextBtn" class="modal-nav-btn" onclick="nextModalImage()">&#10095;</button>
+        <div id="modalCounter" class="modal-counter">1 / 1</div>
+    </div>
 </div>
 
 <!-- GİRİŞ EKRANI -->
@@ -765,13 +790,60 @@
     let weekDaysData = [];
     let currentUser = null;
 
-    // RESİM BÜYÜTME FONKSİYONLARI
-    function openImageModal(imgSrc) {
-        const modal = document.getElementById('imageModal');
+    // RESİM BÜYÜTME VE OK TUŞLARI İLE GEZİNME DEĞİŞKENLERİ
+    let currentModalImages = [];
+    let currentModalIndex = 0;
+
+    function openImageModal(imgSrc, imageList = []) {
+        if (imageList && imageList.length > 0) {
+            currentModalImages = imageList;
+            currentModalIndex = imageList.indexOf(imgSrc);
+            if (currentModalIndex === -1) currentModalIndex = 0;
+        } else {
+            currentModalImages = [imgSrc];
+            currentModalIndex = 0;
+        }
+
+        updateModalView();
+        document.getElementById('imageModal').classList.add('active');
+    }
+
+    function updateModalView() {
         const modalImg = document.getElementById('modalImageSrc');
-        if (modal && modalImg) {
-            modalImg.src = imgSrc;
-            modal.classList.add('active');
+        const counter = document.getElementById('modalCounter');
+        const prevBtn = document.getElementById('modalPrevBtn');
+        const nextBtn = document.getElementById('modalNextBtn');
+
+        if (modalImg && currentModalImages.length > 0) {
+            modalImg.src = currentModalImages[currentModalIndex];
+        }
+        if (counter) {
+            counter.innerText = `${currentModalIndex + 1} / ${currentModalImages.length}`;
+        }
+
+        // Eğer birden fazla resim varsa ok butonlarını göster, tekse gizle
+        if (currentModalImages.length > 1) {
+            if (prevBtn) prevBtn.style.display = 'flex';
+            if (nextBtn) nextBtn.style.display = 'flex';
+            if (counter) counter.style.display = 'block';
+        } else {
+            if (prevBtn) prevBtn.style.display = 'none';
+            if (nextBtn) nextBtn.style.display = 'none';
+            if (counter) counter.style.display = 'none';
+        }
+    }
+
+    function nextModalImage() {
+        if (currentModalImages.length > 1) {
+            currentModalIndex = (currentModalIndex + 1) % currentModalImages.length;
+            updateModalView();
+        }
+    }
+
+    function prevModalImage() {
+        if (currentModalImages.length > 1) {
+            currentModalIndex = (currentModalIndex - 1 + currentModalImages.length) % currentModalImages.length;
+            updateModalView();
         }
     }
 
@@ -781,6 +853,20 @@
             modal.classList.remove('active');
         }
     }
+
+    // Klavye Ok Tuşları Desteği
+    document.addEventListener('keydown', function(e) {
+        const modal = document.getElementById('imageModal');
+        if (modal && modal.classList.contains('active')) {
+            if (e.key === 'ArrowRight') {
+                nextModalImage();
+            } else if (e.key === 'ArrowLeft') {
+                prevModalImage();
+            } else if (e.key === 'Escape') {
+                closeImageModal();
+            }
+        }
+    });
 
     function getDynamicUsers() {
         return {
@@ -1199,7 +1285,8 @@
         const container = document.getElementById('imgPreviewArea');
         container.innerHTML = '';
         selectedImageBase64List.forEach((img, idx) => {
-            container.innerHTML += `<div class="img-thumb-wrap"><img src="${img}" onclick="openImageModal('${img}')"><div class="img-delete-badge" onclick="removeImage(${idx})">×</div></div>`;
+            const listStr = JSON.stringify(selectedImageBase64List).replace(/"/g, '&quot;');
+            container.innerHTML += `<div class="img-thumb-wrap"><img src="${img}" onclick="openImageModal('${img}', ${listStr})"><div class="img-delete-badge" onclick="removeImage(${idx})">×</div></div>`;
         });
     }
 
@@ -1259,7 +1346,8 @@
         container.innerHTML = '';
         selectedLeaveImageBase64List.forEach((img, idx) => {
             let displaySrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-            container.innerHTML += `<div class="img-thumb-wrap"><img src="${displaySrc}" onclick="openImageModal('${img}')"><div class="img-delete-badge" onclick="removeLeaveImage(${idx})">×</div></div>`;
+            const listStr = JSON.stringify(selectedLeaveImageBase64List).replace(/"/g, '&quot;');
+            container.innerHTML += `<div class="img-thumb-wrap"><img src="${displaySrc}" onclick="openImageModal('${img}', ${listStr})"><div class="img-delete-badge" onclick="removeLeaveImage(${idx})">×</div></div>`;
         });
     }
 
@@ -1351,7 +1439,11 @@
                 } else {
                     dayWorks.forEach(w => {
                         let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
-                        let imgHtml = w.images && w.images.length ? `<div class="img-preview-container">` + w.images.map(img => `<img src="${img}" onclick="openImageModal('${img}')">`).join('') + `</div>` : '';
+                        let imgHtml = '';
+                        if (w.images && w.images.length) {
+                            const listStr = JSON.stringify(w.images).replace(/"/g, '&quot;');
+                            imgHtml = `<div class="img-preview-container">` + w.images.map(img => `<img src="${img}" onclick="openImageModal('${img}', ${listStr})">`).join('') + `</div>`;
+                        }
 
                         dayTasksHtml += `
                             <div class="task-card status-${w.status}">
@@ -1884,11 +1976,11 @@
             return matchUnit && matchStatus && matchTitle;
         });
 
-        tbody.innerHTML = filtered.map(p => `
+        tbody.innerHTML = filtered.map((p, idx) => `
             <tr>
-                <td><b>${p.name}</b></td>
-                <td>${p.unit}</td>
-                <td><span class="user-badge" style="background:var(--accent);">${p.status || 'Memur'}</span></td>
+                <td><b>${p.name || '-'}</b></td>
+                <td>${p.unit || '-'}</td>
+                <td><span class="user-badge" style="background:${p.status==='Memur'?'var(--success)':(p.status==='Sözleşmeli'?'var(--accent)':'var(--warning)')};">${p.status || '-'}</span></td>
                 <td>${p.title || '-'}</td>
                 <td>${p.phone || '-'}</td>
                 <td style="display:flex; gap:4px;">
@@ -1896,7 +1988,7 @@
                     <button class="btn-delete" onclick="deletePersonnel('${p.id}')">Sil</button>
                 </td>
             </tr>
-        `).join('') || `<tr><td colspan="6" style="text-align:center;">Kriterlere uygun personel kaydı bulunmuyor.</td></tr>`;
+        `).join('') || `<tr><td colspan="6" style="text-align:center;">Personel bulunmuyor.</td></tr>`;
     }
 
     async function deletePersonnel(id) {
@@ -1911,26 +2003,17 @@
 
     function updatePersonnelStats() {
         const total = personnelList.length;
-        let memurCount = 0;
-        let isciCount = 0;
-        let sozlesmeliCount = 0;
+        const memur = personnelList.filter(p => p.status === 'Memur').length;
+        const isci = personnelList.filter(p => p.status === 'Şirket İşçisi').length;
+        const sozlesmeli = personnelList.filter(p => p.status === 'Sözleşmeli').length;
 
-        personnelList.filter(Boolean).forEach(p => {
-            let st = p.status || '';
-            if (st === 'Memur') memurCount++;
-            else if (st === 'Şirket İşçisi') isciCount++;
-            else if (st === 'Sözleşmeli') sozlesmeliCount++;
-        });
-
-        let todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toISOString().split('T')[0];
         let izindeCount = 0;
         let raporluCount = 0;
 
         leaveList.forEach(l => {
             if (l.startDate <= todayStr && l.endDate >= todayStr) {
-                let leaveType = String(l.type || '');
-                
-                if (leaveType.includes('Rapor') || leaveType.includes('Doğum') || leaveType.includes('Ücretsiz')) {
+                if (l.type && l.type.includes('Rapor')) {
                     raporluCount++;
                 } else {
                     izindeCount++;
@@ -1939,32 +2022,33 @@
         });
 
         document.getElementById('statTotal').innerText = total;
-        document.getElementById('statMemur').innerText = memurCount;
-        document.getElementById('statIsci').innerText = isciCount;
-        document.getElementById('statSozlesmeli').innerText = sozlesmeliCount;
+        document.getElementById('statMemur').innerText = memur;
+        document.getElementById('statIsci').innerText = isci;
+        document.getElementById('statSozlesmeli').innerText = sozlesmeli;
         document.getElementById('statIzinde').innerText = izindeCount;
         document.getElementById('statRaporlu').innerText = raporluCount;
-        
-        const leaveCountBadge = document.getElementById('leaveCountBadge');
-        if(leaveCountBadge) {
-            leaveCountBadge.innerText = izindeCount + raporluCount;
-        }
     }
 
     document.getElementById('leaveForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const editId = document.getElementById('leaveEditId').value;
         const pId = document.getElementById('leavePersonSelect').value;
-        const person = personnelList.find(p => p.id === pId);
-        
+        const pers = personnelList.find(item => item.id === pId);
+
+        if (!pers) {
+            alert("Lütfen geçerli bir personel seçin!");
+            return;
+        }
+
         const leaveObj = {
-            personId: pId,
-            personName: person ? person.name : '',
-            personUnit: person ? person.unit : '',
+            personnelId: pId,
+            personnelName: pers.name,
+            unit: pers.unit,
             type: document.getElementById('leaveType').value,
             startDate: document.getElementById('startDate').value,
             endDate: document.getElementById('endDate').value,
-            images: selectedLeaveImageBase64List
+            images: selectedLeaveImageBase64List,
+            updatedAt: new Date().toISOString()
         };
 
         try {
@@ -1972,11 +2056,11 @@
                 await db.collection("leaves").doc(editId).update(leaveObj);
                 let idx = leaveList.findIndex(l => l.id === editId);
                 if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
-                alert("İzin/Rapor güncellendi.");
+                alert("İzin kaydı güncellendi.");
             } else {
                 let docRef = await db.collection("leaves").add(leaveObj);
                 leaveList.push({ id: docRef.id, ...leaveObj });
-                alert("İzin/Rapor kaydedildi.");
+                alert("İzin/Rapor kaydı oluşturuldu.");
             }
             resetLeaveForm();
             renderLeaveTable();
@@ -1991,14 +2075,8 @@
         const l = leaveList.find(item => item.id === id);
         if (!l) return;
 
-        const person = personnelList.find(p => p.id === l.personId);
-        if (currentUser.role !== 'ADMIN' && person && person.unit !== currentUser.unit) {
-            alert("Yalnızca kendi biriminizdeki personelin izinlerini düzenleyebilirsiniz!");
-            return;
-        }
-
         document.getElementById('leaveEditId').value = l.id;
-        document.getElementById('leavePersonSelect').value = l.personId || '';
+        document.getElementById('leavePersonSelect').value = l.personnelId || '';
         document.getElementById('leaveType').value = l.type || 'Yıllık İzin';
         document.getElementById('startDate').value = l.startDate || '';
         document.getElementById('endDate').value = l.endDate || '';
@@ -2006,7 +2084,7 @@
         selectedLeaveImageBase64List = l.images ? [...l.images] : [];
         renderLeaveImagePreviews();
 
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Bilgilerini Düzenle';
+        document.getElementById('leaveFormTitle').innerText = '📄 İzin Kaydını Düzenle';
         document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
         document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2026,77 +2104,51 @@
         const tbody = document.getElementById('leaveTableBody');
         if (!tbody) return;
 
-        const fLeaveUnit = document.getElementById('filterLeaveUnit').value;
-        const filterLeaveTypeSelect = document.getElementById('filterLeaveType');
+        const fUnit = document.getElementById('filterLeaveUnit').value;
+        const fType = document.getElementById('filterLeaveType').value;
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        // Birim yetkilisi girdiğinde varsayılan süzgeci "Bugün İzinli Olanlar"a ayarla
-        if (currentUser && currentUser.role !== 'ADMIN' && !filterLeaveTypeSelect.dataset.userChanged) {
-            filterLeaveTypeSelect.value = 'TODAY';
-        }
+        const filtered = leaveList.filter(l => {
+            let matchUnit = (fUnit === 'ALL' || (l.unit && l.unit.toLowerCase() === fUnit.toLowerCase()));
+            let matchType = true;
 
-        const fLeaveType = filterLeaveTypeSelect.value;
-        let filteredLeaves = leaveList;
-
-        if (currentUser.role !== 'ADMIN') {
-            filteredLeaves = filteredLeaves.filter(l => {
-                const person = personnelList.find(p => p.id === l.personId);
-                const pUnit = person ? person.unit : (l.personUnit || '');
-                return pUnit.toLowerCase() === currentUser.unit.toLowerCase();
-            });
-        } else {
-            if (fLeaveUnit !== 'ALL') {
-                filteredLeaves = filteredLeaves.filter(l => {
-                    const person = personnelList.find(p => p.id === l.personId);
-                    const pUnit = person ? person.unit : (l.personUnit || '');
-                    return pUnit.toLowerCase() === fLeaveUnit.toLowerCase();
-                });
+            if (fType === 'TODAY') {
+                matchType = (l.startDate <= todayStr && l.endDate >= todayStr);
+            } else if (fType !== 'ALL') {
+                matchType = (l.type === fType);
             }
-        }
+            return matchUnit && matchType;
+        });
 
-        if (fLeaveType === 'TODAY') {
-            const todayStr = new Date().toISOString().split('T')[0];
-            filteredLeaves = filteredLeaves.filter(l => l.startDate <= todayStr && l.endDate >= todayStr);
-        } else if (fLeaveType !== 'ALL') {
-            filteredLeaves = filteredLeaves.filter(l => l.type === fLeaveType);
-        }
+        document.getElementById('leaveCountBadge').innerText = filtered.length;
 
-        tbody.innerHTML = filteredLeaves.map(l => {
-            const person = personnelList.find(p => p.id === l.personId);
-            const pUnit = person ? person.unit : (l.personUnit || '-');
-            let imgHtml = l.images && l.images.length ? `<div class="img-preview-container">` + l.images.map(img => {
-                let displaySrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-                return `<img src="${displaySrc}" onclick="openImageModal('${img}')">`;
-            }).join('') + `</div>` : '-';
+        tbody.innerHTML = filtered.map(l => {
+            let docPreview = '-';
+            if (l.images && l.images.length > 0) {
+                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
+                docPreview = `<div class="img-preview-container">` + l.images.map(img => {
+                    let thumb = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
+                    return `<img src="${thumb}" onclick="openImageModal('${img}', ${listStr})">`;
+                }).join('') + `</div>`;
+            }
+
             return `
                 <tr>
-                    <td><b>${l.personName}</b></td>
-                    <td>${pUnit}</td>
-                    <td><span class="user-badge" style="background:var(--warning);">${l.type}</span></td>
-                    <td>${l.startDate} / ${l.endDate}</td>
-                    <td>${imgHtml}</td>
+                    <td><b>${l.personnelName || '-'}</b></td>
+                    <td>${l.unit || '-'}</td>
+                    <td><span class="user-badge" style="background:${l.type.includes('Rapor')?'var(--danger)':'var(--warning)'};">${l.type}</span></td>
+                    <td>${l.startDate} ~ ${l.endDate}</td>
+                    <td>${docPreview}</td>
                     <td style="display:flex; gap:4px;">
                         <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
                         <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
                     </td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">İzin kaydı bulunmuyor.</td></tr>`;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
     }
 
-    // Kullanıcı elle izin türü filtresini değiştirirse takibe al
-    document.getElementById('filterLeaveType').addEventListener('change', function() {
-        this.dataset.userChanged = "true";
-    });
-
     async function deleteLeave(id) {
-        const l = leaveList.find(item => item.id === id);
-        if (l) {
-            const person = personnelList.find(p => p.id === l.personId);
-            if (currentUser.role !== 'ADMIN' && person && person.unit !== currentUser.unit) {
-                alert("Yalnızca kendi biriminizdeki izin kayıtlarını silebilirsiniz!");
-                return;
-            }
-        }
         if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
         await db.collection("leaves").doc(id).delete();
         leaveList = leaveList.filter(l => l.id !== id);
@@ -2106,72 +2158,82 @@
 
     function renderReportPersonnelTable() {
         const tbody = document.getElementById('reportPersonnelBody');
-        if (!tbody) return;
-
-        const filterUnit = document.getElementById('reportUnitFilter').value;
-        const filterStatus = document.getElementById('reportPersStatusFilter').value;
+        const unitFilter = document.getElementById('reportUnitFilter').value;
+        const statusFilter = document.getElementById('reportPersStatusFilter').value;
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const filtered = personnelList.filter(p => {
-            let matchUnit = (filterUnit === 'ALL' || p.unit === filterUnit);
-            
-            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            
-            let matchStatus = true;
-            if (filterStatus === 'IZINLI') {
-                matchStatus = activeLeave && !String(activeLeave.type).includes('Rapor') && !String(activeLeave.type).includes('Doğum') && !String(activeLeave.type).includes('Ücretsiz');
-            } else if (filterStatus === 'RAPORLU') {
-                matchStatus = activeLeave && (String(activeLeave.type).includes('Rapor') || String(activeLeave.type).includes('Doğum') || String(activeLeave.type).includes('Ücretsiz'));
-            } else if (filterStatus === 'AKTIF') {
-                matchStatus = !activeLeave;
-            }
+        if (!tbody) return;
 
-            return matchUnit && matchStatus;
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (unitFilter === 'ALL' || p.unit === unitFilter);
+            let currentLeave = leaveList.find(l => l.personnelId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+
+            if (statusFilter === 'IZINLI') {
+                return matchUnit && currentLeave && !currentLeave.type.includes('Rapor');
+            } else if (statusFilter === 'RAPORLU') {
+                return matchUnit && currentLeave && currentLeave.type.includes('Rapor');
+            } else if (statusFilter === 'AKTIF') {
+                return matchUnit && !currentLeave;
+            }
+            return matchUnit;
         });
 
         tbody.innerHTML = filtered.map(p => {
-            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            let statusBadge = `<span class="user-badge" style="background:var(--success);">Görevde / Aktif</span>`;
-            if (activeLeave) {
-                let isRapor = String(activeLeave.type).includes('Rapor');
-                statusBadge = `<span class="user-badge" style="background:${isRapor?'var(--danger)':'var(--warning)'};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+            let currentLeave = leaveList.find(l => l.personnelId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            let statusBadgeHtml = '<span class="user-badge" style="background:var(--success)">Görevde / Aktif</span>';
+            if (currentLeave) {
+                let badgeColor = currentLeave.type.includes('Rapor') ? 'var(--danger)' : 'var(--warning)';
+                statusBadgeHtml = `<span class="user-badge" style="background:${badgeColor}">${currentLeave.type} (${currentLeave.startDate} - ${currentLeave.endDate})</span>`;
             }
 
             return `
                 <tr>
                     <td><b>${p.name}</b></td>
                     <td>${p.unit}</td>
-                    <td>${p.status || '-'}</td>
-                    <td>${p.title || '-'}</td>
-                    <td>${statusBadge}</td>
+                    <td>${p.status}</td>
+                    <td>${p.title}</td>
+                    <td>${statusBadgeHtml}</td>
                 </tr>
             `;
         }).join('') || `<tr><td colspan="5" style="text-align:center;">Kriterlere uygun personel bulunamadı.</td></tr>`;
     }
 
     function renderReportTable() {
-        renderReportPersonnelTable();
         const tbody = document.getElementById('reportTableBody');
+        const unitFilter = document.getElementById('reportUnitFilter').value;
         if (!tbody) return;
-        const filterUnit = document.getElementById('reportUnitFilter').value;
-        const filtered = workProgramList.filter(w => filterUnit === 'ALL' || w.unit === filterUnit);
-        
+
+        const filtered = workProgramList.filter(w => {
+            return (unitFilter === 'ALL' || w.unit === unitFilter);
+        });
+
         tbody.innerHTML = filtered.map(w => {
             let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
+            let dayName = dayObj ? dayObj.fullLabel : 'Bilinmiyor';
             let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
-            return `<tr><td>${w.unit}</td><td>${dayObj ? dayObj.fullLabel : ''}</td><td>${w.timeStr || '-'}</td><td>${w.title}</td><td>${statusLabel}</td></tr>`;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıt bulunamadı.</td></tr>`;
+
+            return `
+                <tr>
+                    <td><b>${w.unit}</b></td>
+                    <td>${dayName}</td>
+                    <td>${w.timeStr || '-'}</td>
+                    <td>${w.title}</td>
+                    <td>${statusLabel}</td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıtlı görev bulunamadı.</td></tr>`;
+
+        renderReportPersonnelTable();
     }
 
+    // Uygulama Açılış Kontrolü
     window.onload = function() {
-        const saved = localStorage.getItem('activeSession');
-        if (saved) {
-            currentUser = JSON.parse(saved);
+        const savedSession = localStorage.getItem('activeSession');
+        if (savedSession) {
+            currentUser = JSON.parse(savedSession);
             document.getElementById('loginOverlay').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
             setupSessionUI();
-        } else {
-            loadDataFromCloud();
         }
     };
 </script>
