@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Birim ve Personel Takip Sistemi (Mobil)</title>
+    <!-- Firebase SDK v9 Modüler CDN Kütüphaneleri -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- jsPDF ve AutoTable Kütüphaneleri - PDF Çıktısı İçin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --primary: #1e293b;
+            --accent: #0284c7;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --text: #0f172a;
+            --border: #cbd5e1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-color); color: var(--text); padding: 10px; font-size: 14px; }
+        .container { max-width: 1200px; margin: 0 auto; padding-bottom: 30px; }
+
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 41, 59, 0.98); display: flex;
+            justify-content: center; align-items: center; z-index: 9999; padding: 20px;
+        }
+        .login-card {
+            background: white; padding: 25px 20px; border-radius: 12px;
+            width: 100%; max-width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .login-card h2 { text-align: center; color: var(--primary); margin-bottom: 20px; font-size: 1.3rem; }
+
+        header {
+            background: var(--primary); color: white; padding: 12px 15px;
+            border-radius: 10px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;
+        }
+        header h2 { font-size: 1.1rem; text-align: center; }
+
+        .nav-tabs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        @media (max-width: 900px) {
+            .nav-tabs { grid-template-columns: repeat(4, 1fr); }
+        }
+        .tab-btn {
+            background: rgba(255,255,255,0.12); color: white; border: none;
+            padding: 10px 4px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.7rem; text-align: center; transition: 0.2s;
+        }
+        .tab-btn.active, .tab-btn:hover { background: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .auth-bar {
+            background: #ffffff; padding: 10px 15px; border-radius: 8px;
+            margin-bottom: 12px; border: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;
+        }
+
+        .card { background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 12px; width: 100%; border: 1px solid var(--border); }
+        .card h2 { font-size: 1rem; margin-bottom: 12px; color: var(--primary); border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
+
+        .add-task-container { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px; }
+        .add-task-container h3 { font-size: 0.95rem; color: var(--primary); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; color: #475569; }
+        .form-group input, .form-group select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; background: #fff; }
+        .full-width { grid-column: 1 / -1; }
+
+        button.btn-add, button.btn-submit { background: var(--accent); color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.9rem; text-align: center; }
+        button.btn-add:active, button.btn-submit:active { opacity: 0.9; }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        .btn-edit { background: var(--warning); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
+        .btn-logout { background: #64748b; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.75rem; }
+        .btn-pdf { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-pdf:hover { background: #b02a37; }
+        .btn-excel { background: #16a34a; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-excel:hover { background: #15803d; }
+
+        /* İSTATİSTİK KARTLARI */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 15px; }
+        .stat-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; border-left: 4px solid var(--accent); }
+        .stat-box.green { border-left-color: var(--success); }
+        .stat-box.warning { border-left-color: var(--warning); }
+        .stat-box.danger { border-left-color: var(--danger); }
+        .stat-box h4 { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
+        .stat-box span { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+
+        /* BİRİM BAZLI HAFTALIK BLOK STİLLERİ */
+        .unit-weekly-section { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 15px; }
+        .unit-section-title { font-size: 0.95rem; color: var(--primary); background: #e2e8f0; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px; font-weight: 800; display: flex; align-items: center; gap: 6px; border-left: 4px solid var(--accent); }
+        
+        .unit-weekly-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow-x: auto; padding-bottom: 5px; }
+        @media (max-width: 900px) {
+            .unit-weekly-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+        }
+
+        .day-column { background: #ffffff; border: 1px solid var(--border); border-radius: 6px; padding: 8px; min-height: 180px; display: flex; flex-direction: column; gap: 8px; }
+        .day-column h4 { font-size: 0.8rem; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 4px; margin-bottom: 2px; }
+
+        .task-card { background: #fdfdfd; border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 8px; border-radius: 6px; font-size: 0.8rem; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+        .task-card.status-PLAN { border-left-color: var(--warning); }
+        .task-card.status-PROGRESS { border-left-color: var(--accent); }
+        .task-card.status-DONE { border-left-color: var(--success); }
+        .task-time { font-size: 0.75rem; font-weight: bold; color: #64748b; display: flex; justify-content: space-between; align-items: center; }
+
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 8px; border-radius: 6px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; white-space: nowrap; }
+        th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background-color: #f1f5f9; color: var(--primary); font-weight: 700; }
+
+        .hidden { display: none !important; }
+        .user-badge { background: var(--danger); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .user-badge.unit { background: var(--success); }
+
+        .img-preview-container { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+        .img-thumb-wrap { position: relative; display: inline-block; }
+        .img-preview-container img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; }
+        .img-delete-badge {
+            position: absolute; top: -4px; right: -4px; background: var(--danger); color: white;
+            border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; cursor: pointer; border: 1px solid white;
+        }
+
+        /* RESİM BÜYÜTME MODAL STİLLERİ */
+        #imageModal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); display: none;
+            justify-content: center; align-items: center; z-index: 10000; padding: 20px;
+        }
+        #imageModal.active { display: flex; }
+        #imageModal img {
+            max-width: 90%; max-height: 90%; object-fit: contain; border-radius: 8px; box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+        }
+        #imageModal .close-modal {
+            position: absolute; top: 20px; right: 25px; color: white; font-size: 35px; font-weight: bold; cursor: pointer; background: rgba(0,0,0,0.4); width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+<!-- RESİM BÜYÜTME MODAL YAPISI -->
+<div id="imageModal" onclick="closeImageModal()">
+    <span class="close-modal">&times;</span>
+    <img id="modalImageSrc" src="" alt="Büyük Görsel">
+</div>
+
+<!-- GİRİŞ EKRANI -->
+<div id="loginOverlay">
+    <div class="login-card">
+        <h2>📱 Mobil Sistem Girişi</h2>
+        <form id="loginForm">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Kullanıcı Adı</label>
+                <input type="text" id="username" placeholder="Örn: admin veya parkbahceler" required autocapitalize="none">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>Şifre</label>
+                <input type="password" id="password" placeholder="******" required>
+            </div>
+            <button type="submit" class="btn-submit">Giriş Yap</button>
+        </form>
+    </div>
+</div>
+
+<div class="container hidden" id="mainApp">
+    <header>
+        <h2 id="headerTitle">Birim ve Personel Takip</h2>
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('weeklyTab', event)">📅 Haftalık Program</button>
+            <button class="tab-btn" onclick="switchTab('leaveTab', event)">📄 İzinler</button>
+            <button class="tab-btn" onclick="switchTab('vehicleTab', event)">🚗 Araçlar</button>
+            <button class="tab-btn hidden" onclick="switchTab('reportTab', event)" id="tabReportBtn">📊 Rapor</button>
+            <button class="tab-btn hidden" onclick="switchTab('personnelTab', event)" id="tabPersonnelBtn">👤 Personel</button>
+            <button class="tab-btn hidden" onclick="switchTab('addUnitTab', event)" id="tabAddUnitBtn">🏢 Birim Ekle</button>
+            <button class="tab-btn hidden" onclick="switchTab('addTitleTab', event)" id="tabAddTitleBtn">⚙️ Unvan Tanımla</button>
+        </div>
+    </header>
+
+    <div class="auth-bar">
+        <div>
+            <span>Oturum: </span>
+            <span id="sessionStatus" class="user-badge">Admin</span>
+        </div>
+        <button class="btn-logout" onclick="logout()">Çıkış 🚪</button>
+    </div>
+
+    <!-- HAFTALIK ÇALIŞMA PROGRAMI -->
+    <div id="weeklyTab" class="tab-content active">
+        
+        <!-- ADMIN İÇİN BİRİM SEÇİM ÇUBUĞU -->
+        <div class="card hidden" id="adminUnitSelectorCard" style="background: #f8fafc; padding: 10px 15px;">
+            <div class="form-group">
+                <label style="color: var(--accent);">Görüntülenen / Yönetilen Birim:</label>
+                <select id="activeViewingUnit" onchange="onAdminUnitChange()">
+                    <option value="ALL">🌟 Tümü (Tüm Birimler)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- YENİ GÖREV / PROGRAM EKLEME FORMU -->
+        <div class="add-task-container" id="workFormCard">
+            <h3 id="workFormTitle">Yeni Görev / Program Ekle</h3>
+            <form id="workForm">
+                <input type="hidden" id="workEditId" value="">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Program Haftası:</label>
+                        <div style="display: flex; gap: 4px;">
+                            <select id="workYearSelect" onchange="onWeekSelectionChange()" style="flex: 1;">
+                                <option value="2026" selected>2026</option>
+                                <option value="2027">2027</option>
+                            </select>
+                            <select id="workMonthSelect" onchange="onWeekSelectionChange()" style="flex: 2;">
+                                <option value="0">Ocak</option><option value="1">Şubat</option><option value="2">Mart</option>
+                                <option value="3">Nisan</option><option value="4">Mayıs</option><option value="5">Haziran</option>
+                                <option value="6" selected>Temmuz</option><option value="7">Ağustos</option><option value="8">Eylül</option>
+                                <option value="9">Ekim</option><option value="10">Kasım</option><option value="11">Aralık</option>
+                            </select>
+                            <select id="workWeekNumSelect" onchange="onWeekSelectionChange()" style="flex: 1.5;">
+                                <option value="1">1. Hafta</option><option value="2">2. Hafta</option><option value="3">3. Hafta</option>
+                                <option value="4">4. Hafta</option><option value="5" selected>5. Hafta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Gün Seçin:</label>
+                        <select id="workDaySelect" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Saat / Zaman:</label>
+                        <input type="text" id="workTimeStr" placeholder="Örn: 09:00 - 12:00">
+                    </div>
+                </div>
+              
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Görev / Program Başlığı:</label>
+                        <input type="text" id="workTitle" placeholder="Yapılacak işin detayını yazın..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Durum:</label>
+                        <select id="workStatus" required>
+                            <option value="PLAN">⏳ Planlandı</option>
+                            <option value="PROGRESS">🔄 Devam Ediyor</option>
+                            <option value="DONE">✔ Tamamlandı</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fotoğraf / Kanıt (Maks 3 Adet):</label>
+                        <input type="file" id="workImages" accept="image/*" multiple onchange="handleImageSelection(event)">
+                        <div class="img-preview-container" id="imgPreviewArea"></div>
+                    </div>
+                </div>
+              
+                <div style="display: flex; gap: 8px; margin-top: 5px;">
+                    <button type="button" id="btnCancelEdit" class="btn-delete hidden" style="flex: 1;" onclick="resetWorkForm()">İptal</button>
+                    <button type="submit" class="btn-add" style="flex: 2;">Programa Ekle</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- BİRİM BAZLI HAFTALIK TAKVİM BLOKLARI CONTAINER -->
+        <div class="card">
+            <h2 id="matrixBoardTitle">📅 Haftalık Çalışma Programı</h2>
+            <div id="mobileMatrixContainer" style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <!-- İZİN TAKİBİ SEKMESİ -->
+    <div id="leaveTab" class="tab-content">
+        <div class="card">
+            <h2 id="leaveFormTitle">İzin / Rapor Kaydı Oluştur</h2>
+            <form id="leaveForm">
+                <input type="hidden" id="leaveEditId" value="">
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Personel Seç</label>
+                    <select id="leavePersonSelect" required></select>
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Tür</label>
+                    <select id="leaveType" required>
+                        <option value="Yıllık İzin">Yıllık İzin</option>
+                        <option value="Mazeret İzni">Mazeret İzni</option>
+                        <option value="Sağlık İzni (Rapor)">Sağlık İzni (Rapor)</option>
+                        <option value="Doğum İzni">Doğum İzni</option>
+                        <option value="Ücretsiz İzin">Ücretsiz İzin</option>
+                        <option value="Cenaze İzni">Cenaze İzni</option>
+                        <option value="İdari İzin">İdari İzin</option>
+                        <option value="Düğün İzni">Düğün İzni</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                    <div class="form-group"><label>Başlangıç</label><input type="date" id="startDate" required></div>
+                    <div class="form-group"><label>Bitiş</label><input type="date" id="endDate" required></div>
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label>Rapor / Belge Ekle (Maks 3 Adet):</label>
+                    <input type="file" id="leaveImages" accept="image/*,application/pdf" multiple onchange="handleLeaveImageSelection(event)">
+                    <div class="img-preview-container" id="leaveImgPreviewArea"></div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" id="btnCancelLeaveEdit" class="btn-delete hidden" style="flex: 1;" onclick="resetLeaveForm()">İptal</button>
+                    <button type="submit" class="btn-submit" id="btnLeaveSubmit" style="flex: 2;">İzni Kaydet</button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- MEVCUT İZİN LİSTESİ VE SÜZME ALANI -->
+        <div class="card" id="leaveListCard">
+            <h2>Mevcut İzin Listesi (<span id="leaveCountBadge">0</span> Personel İzinli/Raporlu)</h2>
+            
+            <div class="form-row" style="margin-top: 10px; margin-bottom: 10px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+                <div class="form-group" id="leaveUnitFilterWrap">
+                    <label>Birim Süzgeci</label>
+                    <select id="filterLeaveUnit" onchange="renderLeaveTable()">
+                        <option value="ALL">🌟 Tüm Birimler</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>İzin Türü Süzgeci</label>
+                    <select id="filterLeaveType" onchange="renderLeaveTable()">
+                        <option value="ALL">🌟 Tüm Türler</option>
+                        <option value="TODAY">📅 Bugün İzinli Olanlar</option>
+                        <option value="Yıllık İzin">Yıllık İzin</option>
+                        <option value="Mazeret İzni">Mazeret İzni</option>
+                        <option value="Sağlık İzni (Rapor)">Sağlık İzni (Rapor)</option>
+                        <option value="Doğum İzni">Doğum İzni</option>
+                        <option value="Ücretsiz İzin">Ücretsiz İzin</option>
+                        <option value="Cenaze İzni">Cenaze İzni</option>
+                        <option value="İdari İzin">İdari İzin</option>
+                        <option value="Düğün İzni">Düğün İzni</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Ad Soyad</th><th>Birim</th><th>Tür</th><th>Tarih</th><th>Belge</th><th>İşlem</th></tr></thead>
+                    <tbody id="leaveTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ARAÇ TAKİBİ SEKMESİ -->
+    <div id="vehicleTab" class="tab-content">
+        <div class="card">
+            <h2 id="vehicleFormTitle">🚗 Araç Yönetimi (Ekle / Düzenle)</h2>
+            <form id="vehicleForm">
+                <input type="hidden" id="vehEditId" value="">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Plaka</label>
+                        <input type="text" id="vehPlaka" placeholder="07 XXX 07" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Aracın Markası</label>
+                        <select id="vehMarka" required>
+                            <option value="">Marka Seçiniz</option>
+                            <option value="FOTON">FOTON</option>
+                            <option value="HONDA">HONDA-MOTOSİKLET</option>
+                            <option value="HERO">HERO MOTOCORP</option>
+                            <option value="ERDEMLİ">ERDEMLİ-Hİ</option>
+                            <option value="FİAT">FİAT DOBLO</option>
+                            <option value="FORD">FORD</option>
+                            <option value="RENAULT">RENAULT</option>
+                            <option value="BMC">BMC</option>
+                            <option value="FORD KARGO">FORD-KARGO</option>
+                            <option value="SSANGYONG">SSANGYONG</option>
+                            <option value="OTOKAR">OTOKAR-KARGO</option>
+                            <option value="MASSEY">MASSEY-FERGUSON</option>
+                            <option value="BMC FATİH">BMC FATİH</option>
+                            <option value="IVECO">IVECO</option>
+                            <option value="ISUZU">ISUZU</option>
+                            <option value="MITSUBISHI">MITSUBISHI</option>
+                            <option value="DİĞER">DİĞER</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ticari Adı (Şirket/Malik)</label>
+                        <select id="vehTicariAdi" required>
+                            <option value="">Ticari Adı Seçiniz</option>
+                            <option value="ANTALYA BÜYÜKŞEHİR BELEDİYESİ">ANTALYA BÜYÜKŞEHİR BELEDİYESİ</option>
+                            <option value="ÖZEL ŞİRKET / KİRALIK">ÖZEL ŞİRKET / KİRALIK</option>
+                            <option value="MALİK / SAHİBİ">MALİK / SAHİBİ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Model Yılı</label>
+                        <select id="vehModelYili" required>
+                            <option value="">Model Yılı Seçiniz</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                            <option value="2022">2022</option>
+                            <option value="2021">2021</option>
+                            <option value="2020">2020</option>
+                            <option value="2019">2019</option>
+                            <option value="2018">2018</option>
+                            <option value="2017">2017</option>
+                            <option value="2016">2016</option>
+                            <option value="2015">2015</option>
+                            <option value="Eski">2015 ve Öncesi</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cinsi</label>
+                        <select id="vehCinsi" required>
+                            <option value="">Cins Seçiniz</option>
+                            <option value="KAMYONET">KAMYONET</option>
+                            <option value="OTOMOBİL">OTOMOBİL</option>
+                            <option value="MİNİBÜS">MİNİBÜS</option>
+                            <option value="İTFAİYE ARACI">İTFAİYE ARACI</option>
+                            <option value="KAMYON">KAMYON</option>
+                            <option value="MOTOSİKLET">MOTOSİKLET</option>
+                            <option value="İŞ MAKİNESİ">İŞ MAKİNESİ</option>
+                            <option value="TRAKTÖR">TRAKTÖR</option>
+                            <option value="SEPETLİ ARACI">SEPETLİ-ARAÇ</option>
+                            <option value="MİNİ YOL SÜPÜRME ARACI">MİNİ YOL SÜPÜRME ARACI</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Kullanım Amacı (Ruhsat)</label>
+                        <select id="vehKullAmaci" required>
+                            <option value="">Kullanım Amacı Seçiniz</option>
+                            <option value="TİCARİ YÜK NAKLİ">TİCARİ YÜK NAKLİ</option>
+                            <option value="YOLCU NAKLİ">YOLCU NAKLİ</option>
+                            <option value="HİZMET ARACI">HİZMET ARACI</option>
+                            <option value="YANGIN MÜDAHALE">YANGIN MÜDAHALE</option>
+                            <option value="SULAMA ARACI">SULAMA ARACI</option>
+                            <option value="YOL SÜPÜRME">YOL SÜPÜRME</option>
+                            <option value="CENAZE ARACI">CENAZE ARACI</option>
+                            <option value="ARAZİ / KONTROL">ARAZİ / KONTROL</option>
+                            <option value="ÖZEL AMAÇLI">ÖZEL AMAÇLI</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Resmi / Kiralık Olduğu</label>
+                        <select id="vehResmiKiralik" required>
+                            <option value="KİRALIK">KİRALIK</option>
+                            <option value="RESMİ">RESMİ</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Daire Başkanlığı</label>
+                        <select id="vehDaireBask" required>
+                            <option value="">Daire Başkanlığı Seçiniz</option>
+                            <option value="PARK VE BAHÇELER DAİRESİ BAŞKANLIĞI">PARK VE BAHÇELER DAİRESİ BAŞKANLIĞI</option>
+                            <option value="ÇEVRE KORUMA VE KONTROL DAİRESİ BAŞKANLIĞI">ÇEVRE KORUMA VE KONTROL DAİRESİ BAŞKANLIĞI</option>
+                            <option value="FEN İŞLERİ DAİRESİ BAŞKANLIĞI">FEN İŞLERİ DAİRESİ BAŞKANLIĞI</option>
+                            <option value="İTFAİYE DAİRESİ BAŞKANLIĞI">İTFAİYE DAİRESİ BAŞKANLIĞI</option>
+                            <option value="ULAŞIM DAİRESİ BAŞKANLIĞI">ULAŞIM DAİRESİ BAŞKANLIĞI</option>
+                            <option value="TARIMSAL HİZMETLER DAİRESİ BAŞKANLIĞI">TARIMSAL HİZMETLER DAİRESİ BAŞKANLIĞI</option>
+                            <option value="MEZARLIKLAR DAİRESİ BAŞKANLIĞI">MEZARLIKLAR DAİRESİ BAŞKANLIĞI</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Bağlı Olduğu Şube / Birim</label>
+                        <select id="vehSubeMud" onchange="populateVehicleDriverDropdown()" required>
+                            <option value="">Birim Seçiniz</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Şoförün Adı Soyadı</label>
+                        <select id="vehSofor" onchange="onDriverSelectChange()" required>
+                            <option value="">Önce Birim Seçiniz</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Telefon Numarası</label>
+                        <input type="text" id="vehTel" placeholder="05XX XXX XX XX" readonly style="background-color: #f8fafc;">
+                    </div>
+                    <div class="form-group">
+                        <label>Hangi Görevde Kullanıldığı</label>
+                        <select id="vehGorev" required>
+                            <option value="">Görev Seçiniz</option>
+                            <option value="HİZMET ARACI">HİZMET ARACI</option>
+                            <option value="KONTROL ARACI">KONTROL ARACI</option>
+                            <option value="NAKLİYE / YÜK TAŞIMA">NAKLİYE / YÜK TAŞIMA</option>
+                            <option value="ARAZİ / SAHA ÇALIŞMASI">ARAZİ / SAHA ÇALIŞMASI</option>
+                            <option value="YANGIN MÜDAHALE">YANGIN MÜDAHALE</option>
+                            <option value="MAKAM / İDARİ">MAKAM / İDARİ</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Bulunduğu İlçe</label>
+                        <input type="text" id="vehIlce" value="DEMRE">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button type="button" id="btnCancelVehEdit" class="btn-delete hidden" style="flex: 1;" onclick="resetVehicleForm()">İptal</button>
+                    <button type="submit" class="btn-submit" id="btnVehSubmit" style="flex: 2;">Aracı Kaydet</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid var(--accent); padding-bottom: 4px; flex-wrap: wrap; gap: 10px;">
+                <h2 style="margin-bottom: 0; border: none; padding: 0;">📋 Araç Envanter Listesi ve Raporu</h2>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button type="button" class="btn-pdf" onclick="exportVehiclesToPDF()">📄 Yatay PDF İndir</button>
+                    <button type="button" class="btn-excel" onclick="exportVehiclesToExcel()">📊 Excel Raporu İndir</button>
+                </div>
+            </div>
+            
+            <div class="form-row" style="margin-bottom: 10px;">
+                <div class="form-group">
+                    <label>Durum Filtrele</label>
+                    <select id="filterVehStatus" onchange="renderVehicleTable()">
+                        <option value="ALL">🌟 Tümü (Resmi + Kiralık)</option>
+                        <option value="KİRALIK">Kiralık Araçlar</option>
+                        <option value="RESMİ">Resmi Araçlar</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Birim Seç</label>
+                    <select id="filterVehBirim" onchange="renderVehicleTable()">
+                        <option value="ALL">🌟 Tüm Birimler</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Marka Seç</label>
+                    <select id="filterVehMarka" onchange="renderVehicleTable()">
+                        <option value="ALL">🌟 Tüm Markalar</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Plaka Cinsi Seç</label>
+                    <select id="filterVehCinsi" onchange="renderVehicleTable()">
+                        <option value="ALL">🌟 Tüm Cinsler</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Kullanım Amacı Seç</label>
+                    <select id="filterVehKullAmaci" onchange="renderVehicleTable()">
+                        <option value="ALL">🌟 Tüm Kullanım Amaçları</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Plaka</th>
+                            <th>Marka / Ticari Adı</th>
+                            <th>Model</th>
+                            <th>Cinsi</th>
+                            <th>Resmi/Kiralık</th>
+                            <th>Daire / Şube</th>
+                            <th>Şoför & Tel</th>
+                            <th>Görev / İlçe</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vehicleTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAPOR SEKMESİ -->
+    <div id="reportTab" class="tab-content">
+        <div class="card">
+            <h2>📊 Gelişmiş Süzme ve Raporlama Ekranı</h2>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Bu ekrandan birim, personel, izinli, raporlu ve görev durumlarına göre detaylı süzme yapabilirsiniz.</p>
+            
+            <div class="form-row" style="margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                <div class="form-group">
+                    <label>Birim Filtresi</label>
+                    <select id="reportUnitFilter" onchange="renderReportTable()"></select>
+                </div>
+                <div class="form-group">
+                    <label>Personel Durum Süzgeci</label>
+                    <select id="reportPersStatusFilter" onchange="renderReportTable()">
+                        <option value="ALL">🌟 Tüm Personel</option>
+                        <option value="IZINLI">Yalnızca İzinli Olanlar</option>
+                        <option value="RAPORLU">Yalnızca Raporlu Olanlar</option>
+                        <option value="AKTIF">Görevde / Aktif Olanlar</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 8px;">📋 Süzülen Personel Listesi</h3>
+            <div class="table-responsive" style="margin-bottom: 20px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Ad Soyad</th>
+                            <th>Birim</th>
+                            <th>Statü</th>
+                            <th>Unvan</th>
+                            <th>Güncel Durum / İzin Türü</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportPersonnelBody"></tbody>
+                </table>
+            </div>
+
+            <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 8px;">📋 Detaylı Görev Listesi</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Birim</th><th>Gün</th><th>Saat</th><th>Görev</th><th>Durum</th></tr></thead>
+                    <tbody id="reportTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSONEL SEKMESİ -->
+    <div id="personnelTab" class="tab-content">
+        <div class="card" style="background: #f8fafc;">
+            <h2>📊 Personel İstatistikleri</h2>
+            <div class="stats-grid">
+                <div class="stat-box"><h4>Toplam Personel</h4><span id="statTotal">0</span></div>
+                <div class="stat-box"><h4>Memur</h4><span id="statMemur">0</span></div>
+                <div class="stat-box"><h4>Şirket İşçisi</h4><span id="statIsci">0</span></div>
+                <div class="stat-box"><h4>Sözleşmeli</h4><span id="statSozlesmeli">0</span></div>
+                <div class="stat-box warning"><h4>İzinde Olan</h4><span id="statIzinde">0</span></div>
+                <div class="stat-box danger"><h4>Raporlu / Diğer</h4><span id="statRaporlu">0</span></div>
+            </div>
+        </div>
+
+        <div class="card" style="background: #ffffff; padding: 12px 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="font-size: 0.9rem; color: var(--primary); margin-bottom: 0;">🔍 Personel Filtrele (Birim, Statü, Unvan)</h3>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button type="button" class="btn-pdf" style="padding: 6px 12px; font-size: 0.8rem;" onclick="exportPersonnelToPDF()">📄 PDF İndir</button>
+                    <button type="button" class="btn-excel" style="padding: 6px 12px; font-size: 0.8rem;" onclick="exportPersonnelToExcel()">📊 Excel İndir</button>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Birim Seç</label>
+                    <select id="filterPersUnit" onchange="renderPersonnelTable()">
+                        <option value="ALL">🌟 Tüm Birimler</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Statü Seç</label>
+                    <select id="filterPersStatus" onchange="renderPersonnelTable()">
+                        <option value="ALL">🌟 Tüm Statüler</option>
+                        <option value="Şirket İşçisi">Şirket İşçisi</option>
+                        <option value="Memur">Memur</option>
+                        <option value="Sözleşmeli">Sözleşmeli</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Unvan Seç</label>
+                    <select id="filterPersTitle" onchange="renderPersonnelTable()">
+                        <option value="ALL">🌟 Tüm Unvanlar</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 id="personnelFormTitle">👤 Personel Yönetimi (Ekle / Düzenle)</h2>
+            <form id="addPersonnelForm">
+                <input type="hidden" id="persEditId" value="">
+                <div class="form-row">
+                    <div class="form-group"><label>Ad Soyad</label><input type="text" id="newPersName" required></div>
+                    <div class="form-group"><label>Birim</label><select id="newPersUnit" required></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Statü</label>
+                        <select id="newPersStatus" required>
+                            <option value="Memur">Memur</option>
+                            <option value="Şirket İşçisi">Şirket İşçisi</option>
+                            <option value="Sözleşmeli">Sözleşmeli</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Unvan</label>
+                        <select id="newPersTitle" required></select>
+                    </div>
+                    <div class="form-group"><label>Telefon</label><input type="text" id="newPersPhone" placeholder="05XX XXX XX XX"></div>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 5px;">
+                    <button type="button" id="btnCancelPersEdit" class="btn-delete hidden" style="flex: 1;" onclick="resetPersonnelForm()">İptal</button>
+                    <button type="submit" class="btn-submit" id="btnPersSubmit" style="flex: 2;">Personel Ekle</button>
+                </div>
+            </form>
+            <div class="table-responsive" style="margin-top: 15px;">
+                <table>
+                    <thead><tr><th>Ad Soyad</th><th>Birim</th><th>Statü</th><th>Unvan</th><th>Telefon</th><th>İşlem</th></tr></thead>
+                    <tbody id="personnelTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- BİRİM EKLE SEKMESİ -->
+    <div id="addUnitTab" class="tab-content">
+        <div class="card" style="background: #ffffff; border-left: 4px solid var(--accent); padding: 15px;">
+            <h3 style="font-size: 1rem; color: var(--primary); margin-bottom: 12px;">🏢 Yeni Birim Tanımla</h3>
+            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <input type="text" id="customUnitInput" placeholder="Örn: Ulaşım Hizmetleri vb." style="flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                <button type="button" class="btn-add" style="width: auto; padding: 10px 20px;" onclick="addNewUnitOption()">Birim Ekle</button>
+            </div>
+            <h4 style="font-size: 0.85rem; margin-bottom: 8px; color: #64748b;">Mevcut Birimler</h4>
+            <div id="existingUnitsList" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+        </div>
+    </div>
+
+    <!-- UNVAN TANIMLA SEKMESİ -->
+    <div id="addTitleTab" class="tab-content">
+        <div class="card" style="background: #ffffff; border-left: 4px solid var(--accent); padding: 15px;">
+            <h3 style="font-size: 1rem; color: var(--primary); margin-bottom: 12px;">⚙️ Yeni Unvan Tanımla</h3>
+            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <input type="text" id="customTitleInput" placeholder="Örn: Park Sorumlusu, Operatör vb." style="flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;">
+                <button type="button" class="btn-add" style="width: auto; padding: 10px 20px;" onclick="addNewTitleOption()">Unvan Ekle</button>
+            </div>
+            <h4 style="font-size: 0.85rem; margin-bottom: 8px; color: #64748b;">Mevcut Unvanlar</h4>
+            <div id="existingTitlesList" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Firebase Bağlantı Bilgileri
+    const firebaseConfig = {
+        apiKey: "AIzaSyAgkhSSmd7Fb1ifMlvP0-innMoCWPRVQfA",
+        authDomain: "brt07-aa890.firebaseapp.com",
+        projectId: "brt07-aa890",
+        storageBucket: "brt07-aa890.firebasestorage.app",
+        messagingSenderId: "664113528098",
+        appId: "1:664113528098:web:b997c4e24a65275b82f97b",
+        measurementId: "G-6QJSB7BQY3"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let unitList = ['Park ve Bahçeler', 'Temizlik İşleri', 'Fen İşleri', 'İlaçlama', 'Mezarlık', 'Tımsal'];
+    let titleList = ['Şoför', 'Büro Personeli', 'Temizlik Personeli', 'Mühendis', 'İşçi', 'Sulamacı'];
+    let personnelList = [];
+    let leaveList = [];
+    let workProgramList = [];
+    let vehicleList = [];
+    let selectedImageBase64List = [];
+    let selectedLeaveImageBase64List = [];
+    let weekDaysData = [];
+    let currentUser = null;
+
+    // RESİM BÜYÜTME FONKSİYONLARI
+    function openImageModal(imgSrc) {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImageSrc');
+        if (modal && modalImg) {
+            modalImg.src = imgSrc;
+            modal.classList.add('active');
+        }
+    }
+
+    function closeImageModal() {
+        const modal = document.getElementById('imageModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    function getDynamicUsers() {
+        return {
+            'admin': { pass: 'admin123', role: 'ADMIN', unit: 'Sistem Admini' },
+            'parkbahceler': { pass: '123', role: 'UNIT_USER', unit: 'Park ve Bahçeler' },
+            'temizlik': { pass: '123', role: 'UNIT_USER', unit: 'Temizlik İşleri' },
+            'ilaclama': { pass: '123', role: 'UNIT_USER', unit: 'İlaçlama' },
+            'mezarlik': { pass: '123', role: 'UNIT_USER', unit: 'Mezarlık' },
+            'fenisleri': { pass: '123', role: 'UNIT_USER', unit: 'Fen İşleri' },
+            'tarimsalhizmetler': { pass: '123', role: 'UNIT_USER', unit: 'Tarımsal Hizmetler' },
+            'timsal': { pass: '123', role: 'UNIT_USER', unit: 'Tımsal' }
+        };
+    }
+
+    async function loadDataFromCloud() {
+        try {
+            const unitDoc = await db.collection("settings").doc("units").get();
+            if (unitDoc.exists && unitDoc.data().list) unitList = unitDoc.data().list;
+
+            const titleDoc = await db.collection("settings").doc("titles").get();
+            if (titleDoc.exists && titleDoc.data().list) titleList = titleDoc.data().list;
+
+            const persSnapshot = await db.collection("personnel").get();
+            personnelList = [];
+            persSnapshot.forEach(doc => personnelList.push({ id: doc.id, ...doc.data() }));
+
+            const leaveSnapshot = await db.collection("leaves").get();
+            leaveList = [];
+            leaveSnapshot.forEach(doc => leaveList.push({ id: doc.id, ...doc.data() }));
+
+            const workSnapshot = await db.collection("workProgram").get();
+            workProgramList = [];
+            workSnapshot.forEach(doc => workProgramList.push({ id: doc.id, ...doc.data() }));
+
+            const vehSnapshot = await db.collection("vehicles").get();
+            vehicleList = [];
+            vehSnapshot.forEach(doc => vehicleList.push({ id: doc.id, ...doc.data() }));
+
+            updateUnitDropdowns();
+            updateTitleDropdowns();
+            updateVehicleFilterDropdowns();
+            populateVehicleDriverDropdown();
+            renderUI();
+        } catch (error) {
+            console.error("Veri çekme hatası:", error);
+        }
+    }
+
+    const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    const dayNames = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+
+    function updateUnitDropdowns() {
+        ['newPersUnit', 'reportUnitFilter', 'filterPersUnit', 'filterVehBirim', 'vehSubeMud', 'filterLeaveUnit'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            let currentVal = el.value;
+            if (id === 'reportUnitFilter' || id === 'filterLeaveUnit') {
+                el.innerHTML = '<option value="ALL">🌟 Tüm Birimler</option>';
+            } else if (id === 'filterPersUnit' || id === 'filterVehBirim') {
+                el.innerHTML = '<option value="ALL">🌟 Tüm Birimler</option>';
+            } else if (id === 'vehSubeMud') {
+                el.innerHTML = '<option value="">Birim Seçiniz</option>';
+            } else {
+                el.innerHTML = '';
+            }
+            unitList.forEach(u => el.innerHTML += `<option value="${u}">${u}</option>`);
+            if (currentVal) el.value = currentVal;
+        });
+
+        // Birim kullanıcısı girdiğinde İzin Filtresini kendi birimine sabitleme
+        const leaveUnitSelect = document.getElementById('filterLeaveUnit');
+        if (leaveUnitSelect && currentUser && currentUser.role !== 'ADMIN') {
+            leaveUnitSelect.value = currentUser.unit;
+            leaveUnitSelect.disabled = true;
+        } else if (leaveUnitSelect) {
+            leaveUnitSelect.disabled = false;
+        }
+
+        const viewingSelect = document.getElementById('activeViewingUnit');
+        if (viewingSelect) {
+            let currentVal = viewingSelect.value || "ALL";
+            viewingSelect.innerHTML = '<option value="ALL">🌟 Tümü (Tüm Birimler)</option>';
+            unitList.forEach(u => viewingSelect.innerHTML += `<option value="${u}">${u}</option>`);
+            viewingSelect.value = currentVal;
+        }
+
+        const unitChips = document.getElementById('existingUnitsList');
+        if (unitChips) {
+            unitChips.innerHTML = unitList.map(u => `<span class="user-badge unit" style="padding: 6px 10px; font-size:0.8rem;">${u}</span>`).join('');
+        }
+    }
+
+    function populateVehicleDriverDropdown() {
+        const driverSelect = document.getElementById('vehSofor');
+        const unitSelect = document.getElementById('vehSubeMud');
+        if (!driverSelect || !unitSelect) return;
+
+        let selectedUnit = unitSelect.value;
+        let currentVal = driverSelect.value;
+        
+        driverSelect.innerHTML = '<option value="">Şoför Seçiniz</option>';
+
+        if (!selectedUnit) {
+            driverSelect.innerHTML = '<option value="">Önce Birim Seçiniz</option>';
+            return;
+        }
+
+        const filteredDrivers = personnelList.filter(p => {
+            let matchUnit = p.unit && p.unit.toLowerCase() === selectedUnit.toLowerCase();
+            let matchTitle = p.title && p.title.toLowerCase() === 'şoför';
+            return matchUnit && matchTitle;
+        });
+
+        if (filteredDrivers.length === 0) {
+            driverSelect.innerHTML = '<option value="">Bu birimde kayıtlı şoför bulunmuyor</option>';
+            return;
+        }
+
+        filteredDrivers.forEach(p => {
+            driverSelect.innerHTML += `<option value="${p.name}" data-phone="${p.phone || ''}">${p.name}</option>`;
+        });
+
+        if (currentVal) driverSelect.value = currentVal;
+    }
+
+    function onDriverSelectChange() {
+        const driverSelect = document.getElementById('vehSofor');
+        const phoneInput = document.getElementById('vehTel');
+        const selectedOption = driverSelect.options[driverSelect.selectedIndex];
+        const phone = selectedOption ? selectedOption.getAttribute('data-phone') : '';
+        if (phoneInput) {
+            phoneInput.value = phone || '';
+        }
+    }
+
+    function updateTitleDropdowns() {
+        const formTitleEl = document.getElementById('newPersTitle');
+        if (formTitleEl) {
+            let currentVal = formTitleEl.value;
+            formTitleEl.innerHTML = '';
+            titleList.forEach(t => {
+                formTitleEl.innerHTML += `<option value="${t}">${t}</option>`;
+            });
+            if (currentVal && titleList.includes(currentVal)) {
+                formTitleEl.value = currentVal;
+            }
+        }
+
+        const filterTitleEl = document.getElementById('filterPersTitle');
+        if (filterTitleEl) {
+            let currentVal = filterTitleEl.value;
+            filterTitleEl.innerHTML = '<option value="ALL">🌟 Tüm Unvanlar</option>';
+            titleList.forEach(t => {
+                filterTitleEl.innerHTML += `<option value="${t}">${t}</option>`;
+            });
+            if (currentVal) filterTitleEl.value = currentVal;
+        }
+
+        const titleChips = document.getElementById('existingTitlesList');
+        if (titleChips) {
+            titleChips.innerHTML = titleList.map(t => `<span class="user-badge" style="background:var(--accent); padding: 6px 10px; font-size:0.8rem;">${t}</span>`).join('');
+        }
+    }
+
+    function updateVehicleFilterDropdowns() {
+        const markaSelect = document.getElementById('filterVehMarka');
+        const cinsiSelect = document.getElementById('filterVehCinsi');
+        const amacSelect = document.getElementById('filterVehKullAmaci');
+        if (!markaSelect || !cinsiSelect || !amacSelect) return;
+
+        let curMarka = markaSelect.value;
+        let curCinsi = cinsiSelect.value;
+        let curAmac = amacSelect.value;
+
+        let markalar = [...new Set(vehicleList.map(v => v.marka).filter(Boolean))].sort();
+        let cinsler = [...new Set(vehicleList.map(v => v.cinsi).filter(Boolean))].sort();
+        let amaclar = [...new Set(vehicleList.map(v => v.kullAmaci).filter(Boolean))].sort();
+
+        markaSelect.innerHTML = '<option value="ALL">🌟 Tüm Markalar</option>';
+        markalar.forEach(m => markaSelect.innerHTML += `<option value="${m}">${m}</option>`);
+        if (curMarka) markaSelect.value = curMarka;
+
+        cinsiSelect.innerHTML = '<option value="ALL">🌟 Tüm Cinsler</option>';
+        cinsler.forEach(c => cinsiSelect.innerHTML += `<option value="${c}">${c}</option>`);
+        if (curCinsi) cinsiSelect.value = curCinsi;
+
+        amacSelect.innerHTML = '<option value="ALL">🌟 Tüm Kullanım Amaçları</option>';
+        amaclar.forEach(a => amacSelect.innerHTML += `<option value="${a}">${a}</option>`);
+        if (curAmac) amacSelect.value = curAmac;
+    }
+
+    async function addNewUnitOption() {
+        const input = document.getElementById('customUnitInput');
+        const val = input.value.trim();
+        if (!val) {
+            alert("Lütfen geçerli bir birim adı yazın!");
+            return;
+        }
+        if (!unitList.includes(val)) {
+            unitList.push(val);
+            try {
+                await db.collection("settings").doc("units").set({ list: unitList });
+                updateUnitDropdowns();
+                input.value = '';
+                alert(`"${val}" birimi başarıyla eklendi.`);
+                onWeekSelectionChange();
+            } catch (err) {
+                console.error(err);
+                alert("Birim kaydedilemedi!");
+            }
+        } else {
+            alert("Bu birim listede zaten mevcut!");
+        }
+    }
+
+    async function addNewTitleOption() {
+        const input = document.getElementById('customTitleInput');
+        const val = input.value.trim();
+        if (!val) {
+            alert("Lütfen geçerli bir unvan yazın!");
+            return;
+        }
+        if (!titleList.includes(val)) {
+            titleList.push(val);
+            try {
+                await db.collection("settings").doc("titles").set({ list: titleList });
+                updateTitleDropdowns();
+                document.getElementById('newPersTitle').value = val;
+                input.value = '';
+                alert(`"${val}" unvanı eklendi.`);
+            } catch (err) {
+                console.error(err);
+                alert("Unvan kaydedilemedi!");
+            }
+        } else {
+            alert("Bu unvan listede zaten mevcut!");
+        }
+    }
+
+    function onWeekSelectionChange() {
+        const year = parseInt(document.getElementById('workYearSelect').value);
+        const monthIndex = parseInt(document.getElementById('workMonthSelect').value);
+        const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
+
+        let viewingUnit = currentUser.role === 'ADMIN' ? document.getElementById('activeViewingUnit').value : currentUser.unit;
+        let titlePrefix = viewingUnit === 'ALL' ? 'Tüm Birimler' : viewingUnit;
+        document.getElementById('matrixBoardTitle').innerText = `📅 ${titlePrefix} - ${monthNames[monthIndex]} ${year} (${weekNum}. Hafta)`;
+
+        const firstDayOfMonth = new Date(year, monthIndex, 1);
+        let dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;                 
+        let firstMonday = new Date(year, monthIndex, 1 - dayOfWeek);
+        let startDate = new Date(firstMonday);
+        startDate.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
+
+        weekDaysData = [];
+        const daySelect = document.getElementById('workDaySelect');
+        if(daySelect) daySelect.innerHTML = '';
+
+        for (let i = 0; i < 7; i++) {
+            const dayDate = new Date(startDate);
+            dayDate.setDate(startDate.getDate() + i);
+            const dayFormatted = dayDate.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+            
+            const dayObj = { index: i, name: dayNames[i], dateStr: dayFormatted, fullLabel: `${dayNames[i]} (${dayFormatted})` };
+            weekDaysData.push(dayObj);
+            if(daySelect) daySelect.innerHTML += `<option value="${i}">${dayObj.fullLabel}</option>`;
+        }
+        renderMatrixTable();
+    }
+
+    function onAdminUnitChange() {
+        const viewingUnit = document.getElementById('activeViewingUnit').value;
+        const formCard = document.getElementById('workFormCard');
+        
+        if (viewingUnit === 'ALL') {
+            formCard.classList.add('hidden');
+        } else {
+            formCard.classList.remove('hidden');
+        }
+        onWeekSelectionChange();
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        let u = document.getElementById('username').value.trim().toLowerCase();
+        u = u.replace(/İ/g, 'i').replace(/I/g, 'ı').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/[^a-z0-9]/g, '');
+        const p = document.getElementById('password').value.trim();
+        const activeUsers = getDynamicUsers();
+
+        if (activeUsers[u] && activeUsers[u].pass === p) {
+            currentUser = { username: u, ...activeUsers[u] };
+            localStorage.setItem('activeSession', JSON.stringify(currentUser));
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            setupSessionUI();
+        } else {
+            alert('Hatalı kullanıcı adı veya şifre!');
+        }
+    });
+
+    function logout() {
+        localStorage.removeItem('activeSession');
+        location.reload();
+    }
+
+    function setupSessionUI() {
+        const statusBadge = document.getElementById('sessionStatus');
+        const headerTitle = document.getElementById('headerTitle');
+        updateUnitDropdowns();
+        updateTitleDropdowns();
+        populateVehicleDriverDropdown();
+
+        const leaveUnitFilterWrap = document.getElementById('leaveUnitFilterWrap');
+        if(leaveUnitFilterWrap) leaveUnitFilterWrap.style.display = 'block';
+
+        if (currentUser.role === 'ADMIN') {
+            statusBadge.innerText = '👑 Admin';
+            statusBadge.className = 'user-badge';
+            document.getElementById('tabPersonnelBtn').classList.remove('hidden');
+            document.getElementById('tabReportBtn').classList.remove('hidden');
+            document.getElementById('tabAddUnitBtn').classList.remove('hidden');
+            document.getElementById('tabAddTitleBtn').classList.remove('hidden');
+            document.getElementById('adminUnitSelectorCard').classList.remove('hidden');
+            headerTitle.innerText = "Merkez Yönetim - Birim Programları";
+            document.getElementById('workFormCard').classList.add('hidden');
+        } else {
+            statusBadge.innerText = `🏢 ${currentUser.unit}`;
+            statusBadge.className = 'user-badge unit';
+            document.getElementById('tabPersonnelBtn').classList.add('hidden');
+            document.getElementById('tabReportBtn').classList.add('hidden');
+            document.getElementById('tabAddUnitBtn').classList.add('hidden');
+            document.getElementById('tabAddTitleBtn').classList.add('hidden');
+            document.getElementById('adminUnitSelectorCard').classList.add('hidden');
+            headerTitle.innerText = `${currentUser.unit} - Haftalık Çalışma Programı`;
+            document.getElementById('workFormCard').classList.remove('hidden');
+            
+            const subeInput = document.getElementById('vehSubeMud');
+            if(subeInput && !subeInput.value) {
+                subeInput.value = currentUser.unit;
+                populateVehicleDriverDropdown();
+            }
+        }
+        onWeekSelectionChange();
+        loadDataFromCloud();
+    }
+
+    function switchTab(tabId, evt) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        if (evt) evt.target.classList.add('active');
+        if (tabId === 'reportTab') {
+            renderReportPersonnelTable();
+            renderReportTable();
+        }
+        if (tabId === 'personnelTab') updatePersonnelStats();
+        if (tabId === 'vehicleTab') {
+            populateVehicleDriverDropdown();
+            renderVehicleTable();
+        }
+        if (tabId === 'leaveTab') {
+            renderLeaveTable();
+        }
+    }
+
+    function renderUI() {
+        renderMatrixTable();
+        populatePersonDropdown();
+        renderLeaveTable();
+        renderPersonnelTable();
+        updatePersonnelStats();
+        renderVehicleTable();
+    }
+
+    function handleImageSelection(event) {
+        const files = Array.from(event.target.files);
+        if (selectedImageBase64List.length + files.length > 3) {
+            alert("En fazla 3 adet fotoğraf yükleyebilirsiniz!");
+            event.target.value = "";
+            return;
+        }
+        
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 600;
+                    if (width > height && width > maxDim) {
+                        height *= maxDim / width;
+                        width = maxDim;
+                    } else if (height > maxDim) {
+                        width *= maxDim / height;
+                        height = maxDim;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                    
+                    selectedImageBase64List.push(resizedDataUrl);
+                    renderImagePreviews();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        event.target.value = "";
+    }
+
+    function renderImagePreviews() {
+        const container = document.getElementById('imgPreviewArea');
+        container.innerHTML = '';
+        selectedImageBase64List.forEach((img, idx) => {
+            container.innerHTML += `<div class="img-thumb-wrap"><img src="${img}" onclick="openImageModal('${img}')"><div class="img-delete-badge" onclick="removeImage(${idx})">×</div></div>`;
+        });
+    }
+
+    function removeImage(idx) {
+        selectedImageBase64List.splice(idx, 1);
+        renderImagePreviews();
+    }
+
+    function handleLeaveImageSelection(event) {
+        const files = Array.from(event.target.files);
+        if (selectedLeaveImageBase64List.length + files.length > 3) {
+            alert("En fazla 3 adet belge ekleyebilirsiniz!");
+            event.target.value = "";
+            return;
+        }
+        
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const isPdf = file.type === 'application/pdf';
+                if (isPdf) {
+                    selectedLeaveImageBase64List.push(e.target.result);
+                    renderLeaveImagePreviews();
+                } else {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDim = 600;
+                        if (width > height && width > maxDim) {
+                            height *= maxDim / width;
+                            width = maxDim;
+                        } else if (height > maxDim) {
+                            width *= maxDim / height;
+                            height = maxDim;
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                        
+                        selectedLeaveImageBase64List.push(resizedDataUrl);
+                        renderLeaveImagePreviews();
+                    };
+                    img.src = e.target.result;
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+        event.target.value = "";
+    }
+
+    function renderLeaveImagePreviews() {
+        const container = document.getElementById('leaveImgPreviewArea');
+        container.innerHTML = '';
+        selectedLeaveImageBase64List.forEach((img, idx) => {
+            let displaySrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
+            container.innerHTML += `<div class="img-thumb-wrap"><img src="${displaySrc}" onclick="openImageModal('${img}')"><div class="img-delete-badge" onclick="removeLeaveImage(${idx})">×</div></div>`;
+        });
+    }
+
+    function removeLeaveImage(idx) {
+        selectedLeaveImageBase64List.splice(idx, 1);
+        renderLeaveImagePreviews();
+    }
+
+    document.getElementById('workForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('workEditId').value;
+        let targetUnit = currentUser.role === 'ADMIN' ? document.getElementById('activeViewingUnit').value : currentUser.unit;
+
+        if (targetUnit === 'ALL') {
+            alert("Yeni görev eklemek için lütfen üst menüden tek bir birim seçin!");
+            return;
+        }
+
+        const workObj = {
+            unit: targetUnit,
+            year: parseInt(document.getElementById('workYearSelect').value),
+            month: parseInt(document.getElementById('workMonthSelect').value),
+            weekNum: parseInt(document.getElementById('workWeekNumSelect').value),
+            dayIndex: parseInt(document.getElementById('workDaySelect').value),
+            timeStr: document.getElementById('workTimeStr').value.trim(),
+            title: document.getElementById('workTitle').value.trim(),
+            status: document.getElementById('workStatus').value,
+            images: selectedImageBase64List,
+            updatedAt: new Date().toISOString()
+        };
+
+        try {
+            if (editId) {
+                await db.collection("workProgram").doc(editId).update(workObj);
+                let index = workProgramList.findIndex(w => w.id === editId);
+                if (index !== -1) workProgramList[index] = { id: editId, ...workObj };
+                alert("Görev güncellendi!");
+            } else {
+                let docRef = await db.collection("workProgram").add(workObj);
+                workProgramList.push({ id: docRef.id, ...workObj });
+                alert("Görev programa eklendi!");
+            }
+            resetWorkForm();
+            renderMatrixTable();
+        } catch (err) {
+            console.error(err);
+            alert("Kayıt sırasında hata oluştu! Çok büyük dosyalar yüklenmiş olabilir.");
+        }
+    });
+
+    function resetWorkForm() {
+        document.getElementById('workEditId').value = '';
+        document.getElementById('workTitle').value = '';
+        document.getElementById('workTimeStr').value = '';
+        document.getElementById('workStatus').value = 'PLAN';
+        selectedImageBase64List = [];
+        document.getElementById('imgPreviewArea').innerHTML = '';
+        document.getElementById('btnCancelEdit').classList.add('hidden');
+        document.getElementById('workFormTitle').innerText = 'Yeni Görev / Program Ekle';
+    }
+
+    function renderMatrixTable() {
+        const container = document.getElementById('mobileMatrixContainer');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const year = parseInt(document.getElementById('workYearSelect').value);
+        const month = parseInt(document.getElementById('workMonthSelect').value);
+        const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
+        const viewingUnit = currentUser.role === 'ADMIN' ? document.getElementById('activeViewingUnit').value : currentUser.unit;
+
+        const filteredWorks = workProgramList.filter(w => {
+            let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
+            let matchUnit = (viewingUnit === 'ALL' || w.unit === viewingUnit);
+            return matchWeek && matchUnit;
+        });
+
+        let activeUnitsToDisplay = viewingUnit === 'ALL' ? unitList : [viewingUnit];
+
+        activeUnitsToDisplay.forEach(uName => {
+            const unitWorks = filteredWorks.filter(w => w.unit === uName);
+            let weekGridHtml = '';
+            weekDaysData.forEach(day => {
+                const dayWorks = unitWorks.filter(w => w.dayIndex === day.index);
+                let dayTasksHtml = '';
+
+                if (dayWorks.length === 0) {
+                    dayTasksHtml = `<div style="font-size:0.75rem; color:#94a3b8; font-style:italic;">Görev bulunmuyor.</div>`;
+                } else {
+                    dayWorks.forEach(w => {
+                        let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
+                        let imgHtml = w.images && w.images.length ? `<div class="img-preview-container">` + w.images.map(img => `<img src="${img}" onclick="openImageModal('${img}')">`).join('') + `</div>` : '';
+
+                        dayTasksHtml += `
+                            <div class="task-card status-${w.status}">
+                                <div class="task-time">
+                                    <span>🕒 ${w.timeStr || 'Zaman belirtilmedi'}</span>
+                                </div>
+                                <p><b>${w.title}</b></p>
+                                ${imgHtml}
+                                <div style="margin-top:4px; font-weight:bold; font-size:0.75rem; color:${w.status==='DONE'?'var(--success)':'var(--warning)'};">${statusLabel}</div>
+                                <div style="display:flex; justify-content:flex-end; gap:4px; margin-top:4px;">
+                                    <button class="btn-edit" onclick="editWork('${w.id}')">Düzenle</button>
+                                    <button class="btn-delete" onclick="deleteWork('${w.id}')">Sil</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                weekGridHtml += `
+                    <div class="day-column">
+                        <h4>${day.fullLabel}</h4>
+                        ${dayTasksHtml}
+                    </div>
+                `;
+            });
+
+            container.innerHTML += `
+                <div class="unit-weekly-section">
+                    <div class="unit-section-title">🏢 ${uName} Programı</div>
+                    <div class="unit-weekly-grid">
+                        ${weekGridHtml}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    async function editWork(id) {
+        const w = workProgramList.find(item => item.id === id);
+        if (!w) return;
+        
+        if (currentUser.role === 'ADMIN') {
+            document.getElementById('activeViewingUnit').value = w.unit;
+            document.getElementById('workFormCard').classList.remove('hidden');
+        }
+
+        document.getElementById('workEditId').value = w.id;
+        document.getElementById('workYearSelect').value = w.year;
+        document.getElementById('workMonthSelect').value = w.month;
+        document.getElementById('workWeekNumSelect').value = w.weekNum;
+        onWeekSelectionChange();
+        
+        document.getElementById('workDaySelect').value = w.dayIndex;
+        document.getElementById('workTimeStr').value = w.timeStr || '';
+        document.getElementById('workTitle').value = w.title;
+        document.getElementById('workStatus').value = w.status;
+
+        selectedImageBase64List = w.images ? [...w.images] : [];
+        renderImagePreviews();
+        document.getElementById('workFormTitle').innerText = 'Görevi Düzenle';
+        document.getElementById('btnCancelEdit').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function deleteWork(id) {
+        if (!confirm("Bu görevi silmek istediğinize emin misiniz?")) return;
+        try {
+            await db.collection("workProgram").doc(id).delete();
+            workProgramList = workProgramList.filter(w => w.id !== id);
+            renderMatrixTable();
+        } catch (err) {
+            alert("Silme başarısız!");
+        }
+    }
+
+    function populatePersonDropdown() {
+        const sel = document.getElementById('leavePersonSelect');
+        if (!sel) return;
+        sel.innerHTML = '';
+        
+        let targetPersonnel = personnelList;
+        if (currentUser.role !== 'ADMIN') {
+            targetPersonnel = personnelList.filter(p => p.unit === currentUser.unit);
+        }
+
+        targetPersonnel.forEach(p => {
+            sel.innerHTML += `<option value="${p.id}">${p.name} (${p.unit})</option>`;
+        });
+
+        if (targetPersonnel.length === 0) {
+            sel.innerHTML = `<option value="">Biriminizde kayıtlı personel bulunmuyor</option>`;
+        }
+    }
+
+    document.getElementById('vehicleForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('vehEditId').value;
+        
+        let birimAdi = document.getElementById('vehSubeMud').value;
+        if (currentUser.role !== 'ADMIN' && currentUser.unit) {
+            birimAdi = currentUser.unit;
+        }
+
+        const vehObj = {
+            plaka: document.getElementById('vehPlaka').value.trim(),
+            marka: document.getElementById('vehMarka').value,
+            ticariAdi: document.getElementById('vehTicariAdi').value,
+            modelYili: document.getElementById('vehModelYili').value,
+            cinsi: document.getElementById('vehCinsi').value,
+            kullAmaci: document.getElementById('vehKullAmaci').value,
+            resmiKiralik: document.getElementById('vehResmiKiralik').value,
+            daireBask: document.getElementById('vehDaireBask').value,
+            subeMud: birimAdi,
+            sofor: document.getElementById('vehSofor').value,
+            tel: document.getElementById('vehTel').value.trim(),
+            gorev: document.getElementById('vehGorev').value,
+            ilce: document.getElementById('vehIlce').value.trim()
+        };
+
+        try {
+            if (editId) {
+                await db.collection("vehicles").doc(editId).update(vehObj);
+                let idx = vehicleList.findIndex(v => v.id === editId);
+                if (idx !== -1) vehicleList[idx] = { id: editId, ...vehObj };
+                alert("Araç bilgileri güncellendi.");
+            } else {
+                let docRef = await db.collection("vehicles").add(vehObj);
+                vehicleList.push({ id: docRef.id, ...vehObj });
+                alert("Araç başarıyla eklendi.");
+            }
+            resetVehicleForm();
+            updateVehicleFilterDropdowns();
+            renderVehicleTable();
+        } catch (err) {
+            console.error(err);
+            alert("Araç kaydedilirken hata oluştu!");
+        }
+    });
+
+    function editVehicle(id) {
+        const v = vehicleList.find(item => item.id === id);
+        if (!v) return;
+
+        document.getElementById('vehEditId').value = v.id;
+        document.getElementById('vehPlaka').value = v.plaka || '';
+        document.getElementById('vehMarka').value = v.marka || '';
+        document.getElementById('vehTicariAdi').value = v.ticariAdi || '';
+        document.getElementById('vehModelYili').value = v.modelYili || '';
+        document.getElementById('vehCinsi').value = v.cinsi || '';
+        document.getElementById('vehKullAmaci').value = v.kullAmaci || '';
+        document.getElementById('vehResmiKiralik').value = v.resmiKiralik || 'KİRALIK';
+        document.getElementById('vehDaireBask').value = v.daireBask || '';
+        document.getElementById('vehSubeMud').value = v.subeMud || '';
+        
+        populateVehicleDriverDropdown();
+        document.getElementById('vehSofor').value = v.sofor || '';
+        
+        document.getElementById('vehTel').value = v.tel || '';
+        document.getElementById('vehGorev').value = v.gorev || '';
+        document.getElementById('vehIlce').value = v.ilce || 'DEMRE';
+
+        document.getElementById('vehicleFormTitle').innerText = '🚗 Araç Bilgilerini Düzenle';
+        document.getElementById('btnVehSubmit').innerText = 'Değişiklikleri Kaydet';
+        document.getElementById('btnCancelVehEdit').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetVehicleForm() {
+        document.getElementById('vehEditId').value = '';
+        document.getElementById('vehicleForm').reset();
+        document.getElementById('vehIlce').value = 'DEMRE';
+        if (currentUser && currentUser.role !== 'ADMIN') {
+            document.getElementById('vehSubeMud').value = currentUser.unit;
+        }
+        populateVehicleDriverDropdown();
+        document.getElementById('vehicleFormTitle').innerText = '🚗 Araç Yönetimi (Ekle / Düzenle)';
+        document.getElementById('btnVehSubmit').innerText = 'Aracı Kaydet';
+        document.getElementById('btnCancelVehEdit').classList.add('hidden');
+    }
+
+    function renderVehicleTable() {
+        const tbody = document.getElementById('vehicleTableBody');
+        if (!tbody) return;
+
+        const fStatus = document.getElementById('filterVehStatus').value;
+        const fBirim = document.getElementById('filterVehBirim').value;
+        const fMarka = document.getElementById('filterVehMarka').value;
+        const fCinsi = document.getElementById('filterVehCinsi').value;
+        const fAmac = document.getElementById('filterVehKullAmaci').value;
+
+        const filtered = vehicleList.filter(v => {
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (!v.subeMud || v.subeMud.toLowerCase() !== currentUser.unit.toLowerCase()) {
+                    return false;
+                }
+            }
+
+            let matchStatus = (fStatus === 'ALL' || v.resmiKiralik === fStatus);
+            let matchBirim = (fBirim === 'ALL' || (v.subeMud && v.subeMud.toLowerCase() === fBirim.toLowerCase()));
+            let matchMarka = (fMarka === 'ALL' || v.marka === fMarka);
+            let matchCinsi = (fCinsi === 'ALL' || v.cinsi === fCinsi);
+            let matchAmac = (fAmac === 'ALL' || v.kullAmaci === fAmac);
+            return matchStatus && matchBirim && matchMarka && matchCinsi && matchAmac;
+        });
+
+        tbody.innerHTML = filtered.map(v => `
+            <tr>
+                <td><b>${v.plaka || '-'}</b></td>
+                <td>${v.marka || '-'}<br><small style="color:#64748b">${v.ticariAdi || ''}</small></td>
+                <td>${v.modelYili || '-'}</td>
+                <td>${v.cinsi || '-'}<br><small style="color:#64748b">${v.kullAmaci || ''}</small></td>
+                <td><span class="user-badge" style="background:${v.resmiKiralik==='RESMİ'?'var(--success)':'var(--warning)'};">${v.resmiKiralik || 'KİRALIK'}</span></td>
+                <td>${v.daireBask || '-'}<br><small style="color:#64748b">${v.subeMud || ''}</small></td>
+                <td>${v.sofor || '-'}<br><small style="color:#64748b">${v.tel || ''}</small></td>
+                <td>${v.gorev || '-'}<br><small style="color:#64748b">${v.ilce || ''}</small></td>
+                <td style="display:flex; gap:4px;">
+                    <button class="btn-edit" onclick="editVehicle('${v.id}')">Düzenle</button>
+                    <button class="btn-delete" onclick="deleteVehicle('${v.id}')">Sil</button>
+                </td>
+            </tr>
+        `).join('') || `<tr><td colspan="9" style="text-align:center;">Size ait kayıtlı araç bulunmuyor.</td></tr>`;
+    }
+
+    function turkishToEnglish(text) {
+        if (!text) return '';
+        return text.toString()
+            .replace(/İ/g, 'I').replace(/ı/g, 'i')
+            .replace(/Ş/g, 'S').replace(/ş/g, 's')
+            .replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
+            .replace(/Ü/g, 'U').replace(/ü/g, 'u')
+            .replace(/Ö/g, 'O').replace(/ö/g, 'o')
+            .replace(/Ç/g, 'C').replace(/ç/g, 'c');
+    }
+
+    function exportVehiclesToPDF() {
+        const fStatus = document.getElementById('filterVehStatus').value;
+        const fBirim = document.getElementById('filterVehBirim').value;
+        const fMarka = document.getElementById('filterVehMarka').value;
+        const fCinsi = document.getElementById('filterVehCinsi').value;
+        const fAmac = document.getElementById('filterVehKullAmaci').value;
+
+        const filtered = vehicleList.filter(v => {
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (!v.subeMud || v.subeMud.toLowerCase() !== currentUser.unit.toLowerCase()) {
+                    return false;
+                }
+            }
+            let matchStatus = (fStatus === 'ALL' || v.resmiKiralik === fStatus);
+            let matchBirim = (fBirim === 'ALL' || (v.subeMud && v.subeMud.toLowerCase() === fBirim.toLowerCase()));
+            let matchMarka = (fMarka === 'ALL' || v.marka === fMarka);
+            let matchCinsi = (fCinsi === 'ALL' || v.cinsi === fCinsi);
+            let matchAmac = (fAmac === 'ALL' || v.kullAmaci === fAmac);
+            return matchStatus && matchBirim && matchMarka && matchCinsi && matchAmac;
+        });
+
+        if (filtered.length === 0) {
+            alert("İndirilecek araç kaydı bulunmuyor!");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        let titleReportText = currentUser.role === 'ADMIN' ? "ANTALYA BUYUKSEHIR BELEDIYESI - ARAC ENVANTER RAPORU" : `ANTALYA BUYUKSEHIR BELEDIYESI - ${currentUser.unit.toUpperCase()} ARAC RAPORU`;
+        doc.text(turkishToEnglish(titleReportText), 14, 12);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(turkishToEnglish("Rapor Tarihi: " + new Date().toLocaleDateString('tr-TR') + " | Birim: " + (fBirim === 'ALL' ? "Tümü" : fBirim)), 14, 17);
+
+        const headers = [
+            ["Plaka", "Marka / Ticari Adi", "Model", "Cinsi", "Durumu", "Daire Baskanligi / Sube", "Sofor & Tel", "Gorev / Ilce"]
+        ];
+
+        const rows = filtered.map((v) => [
+            turkishToEnglish(v.plaka || ''),
+            turkishToEnglish((v.marka || '') + (v.ticariAdi ? ' / ' + v.ticariAdi : '')),
+            turkishToEnglish(v.modelYili || ''),
+            turkishToEnglish(v.cinsi || ''),
+            turkishToEnglish(v.resmiKiralik || ''),
+            turkishToEnglish((v.daireBask || '') + (v.subeMud ? ' / ' + v.subeMud : '')),
+            turkishToEnglish((v.sofor || '') + (v.tel ? ' (' + v.tel + ')' : '')),
+            turkishToEnglish((v.gorev || '') + (v.ilce ? ' / ' + v.ilce : ''))
+        ]);
+
+        doc.autoTable({
+            head: headers,
+            body: rows,
+            startY: 21,
+            theme: 'grid',
+            styles: { fontSize: 7.5, cellPadding: 2, font: 'helvetica', overflow: 'linebreak' },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+            alternateRowStyles: { fillColor: [245, 247, 250] },
+            columnStyles: {
+                0: { cellWidth: 28 },
+                1: { cellWidth: 45 },
+                2: { cellWidth: 16 },
+                3: { cellWidth: 32 },
+                4: { cellWidth: 22 },
+                5: { cellWidth: 50 },
+                6: { cellWidth: 48 },
+                7: { cellWidth: 41 }
+            }
+        });
+
+        doc.save("Arac_Envanter_Raporu.pdf");
+    }
+
+    function exportVehiclesToExcel() {
+        const fStatus = document.getElementById('filterVehStatus').value;
+        const fBirim = document.getElementById('filterVehBirim').value;
+        const fMarka = document.getElementById('filterVehMarka').value;
+        const fCinsi = document.getElementById('filterVehCinsi').value;
+        const fAmac = document.getElementById('filterVehKullAmaci').value;
+
+        const filtered = vehicleList.filter(v => {
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (!v.subeMud || v.subeMud.toLowerCase() !== currentUser.unit.toLowerCase()) {
+                    return false;
+                }
+            }
+            let matchStatus = (fStatus === 'ALL' || v.resmiKiralik === fStatus);
+            let matchBirim = (fBirim === 'ALL' || (v.subeMud && v.subeMud.toLowerCase() === fBirim.toLowerCase()));
+            let matchMarka = (fMarka === 'ALL' || v.marka === fMarka);
+            let matchCinsi = (fCinsi === 'ALL' || v.cinsi === fCinsi);
+            let matchAmac = (fAmac === 'ALL' || v.kullAmaci === fAmac);
+            return matchStatus && matchBirim && matchMarka && matchCinsi && matchAmac;
+        });
+
+        if (filtered.length === 0) {
+            alert("Dışa aktarılacak araç kaydı bulunmuyor!");
+            return;
+        }
+
+        let csv = '\uFEFFPlaka\tMarka / Ticari Adı\tModel Yılı\tCinsi\tKullanım Amacı\tResmi / Kiralık\tDaire Başkanlığı\tBirim\tŞoför\tTelefon\tGörev\tİlçe\n';
+        filtered.forEach(v => {
+            csv += `"${v.plaka || ''}"\t"${v.marka || ''} ${v.ticariAdi || ''}"\t"${v.modelYili || ''}"\t"${v.cinsi || ''}"\t"${v.kullAmaci || ''}"\t"${v.resmiKiralik || ''}"\t"${v.daireBask || ''}"\t"${v.subeMud || ''}"\t"${v.sofor || ''}"\t"${v.tel || ''}"\t"${v.gorev || ''}"\t"${v.ilce || ''}"\n`;
+        });
+
+        let blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        let link = document.createElement("a");
+        let url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Arac_Envanter_Raporu.xls");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function exportPersonnelToPDF() {
+        const fUnit = document.getElementById('filterPersUnit').value;
+        const fStatus = document.getElementById('filterPersStatus').value;
+        const fTitle = document.getElementById('filterPersTitle').value;
+
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
+            let matchStatus = (fStatus === 'ALL' || p.status === fStatus);
+            let matchTitle = (fTitle === 'ALL' || p.title === fTitle);
+            return matchUnit && matchStatus && matchTitle;
+        });
+
+        if (filtered.length === 0) {
+            alert("İndirilecek filtrelenmiş personel kaydı bulunmuyor!");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.text(turkishToEnglish("ANTALYA BÜYÜKŞEHİR BELEDİYESİ DEMRE HİZMET BİRİMİ PERSONEL LİSTESİ"), 14, 12);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        let filterDesc = `Birim: ${fUnit === 'ALL' ? 'Tümü' : fUnit} | Statü: ${fStatus === 'ALL' ? 'Tümü' : fStatus} | Unvan: ${fTitle === 'ALL' ? 'Tümü' : fTitle}`;
+        doc.text(turkishToEnglish("Rapor Tarihi: " + new Date().toLocaleDateString('tr-TR') + " | " + filterDesc), 14, 17);
+
+        const headers = [
+            ["Sira", "Ad Soyad", "Birim", "Statu", "Unvan", "Telefon"]
+        ];
+
+        const rows = filtered.map((p, index) => [
+            index + 1,
+            turkishToEnglish(p.name || ''),
+            turkishToEnglish(p.unit || ''),
+            turkishToEnglish(p.status || ''),
+            turkishToEnglish(p.title || ''),
+            turkishToEnglish(p.phone || '-')
+        ]);
+
+        doc.autoTable({
+            head: headers,
+            body: rows,
+            startY: 21,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 3, font: 'helvetica', overflow: 'linebreak' },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+            alternateRowStyles: { fillColor: [245, 247, 250] },
+            columnStyles: {
+                0: { cellWidth: 15 },
+                1: { cellWidth: 55 },
+                2: { cellWidth: 65 },
+                3: { cellWidth: 45 },
+                4: { cellWidth: 45 },
+                5: { cellWidth: 44 }
+            }
+        });
+
+        doc.save("Personel_Filtrelenmis_Rapor.pdf");
+    }
+
+    function exportPersonnelToExcel() {
+        const fUnit = document.getElementById('filterPersUnit').value;
+        const fStatus = document.getElementById('filterPersStatus').value;
+        const fTitle = document.getElementById('filterPersTitle').value;
+
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
+            let matchStatus = (fStatus === 'ALL' || p.status === fStatus);
+            let matchTitle = (fTitle === 'ALL' || p.title === fTitle);
+            return matchUnit && matchStatus && matchTitle;
+        });
+
+        if (filtered.length === 0) {
+            alert("Dışa aktarılacak personel kaydı bulunmuyor!");
+            return;
+        }
+
+        let csv = '\uFEFFSıra\tAd Soyad\tBirim\tStatü\tUnvan\tTelefon\n';
+        filtered.forEach((p, idx) => {
+            csv += `"${idx + 1}"\t"${p.name || ''}"\t"${p.unit || ''}"\t"${p.status || ''}"\t"${p.title || ''}"\t"${p.phone || ''}"\n`;
+        });
+
+        let blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        let link = document.createElement("a");
+        let url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Personel_Raporu.xls");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    async function deleteVehicle(id) {
+        if (!confirm("Bu araç kaydını silmek istediğinize emin misiniz?")) return;
+        await db.collection("vehicles").doc(id).delete();
+        vehicleList = vehicleList.filter(v => v.id !== id);
+        updateVehicleFilterDropdowns();
+        renderVehicleTable();
+    }
+
+    document.getElementById('addPersonnelForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('persEditId').value;
+        const persObj = {
+            name: document.getElementById('newPersName').value.trim(),
+            unit: document.getElementById('newPersUnit').value,
+            status: document.getElementById('newPersStatus').value,
+            title: document.getElementById('newPersTitle').value,
+            phone: document.getElementById('newPersPhone').value.trim()
+        };
+
+        try {
+            if (editId) {
+                await db.collection("personnel").doc(editId).update(persObj);
+                let idx = personnelList.findIndex(p => p.id === editId);
+                if (idx !== -1) personnelList[idx] = { id: editId, ...persObj };
+                alert("Personel bilgileri güncellendi.");
+            } else {
+                let docRef = await db.collection("personnel").add(persObj);
+                personnelList.push({ id: docRef.id, ...persObj });
+                alert("Personel eklendi.");
+            }
+            resetPersonnelForm();
+            renderPersonnelTable();
+            populatePersonDropdown();
+            populateVehicleDriverDropdown();
+            updatePersonnelStats();
+        } catch (err) {
+            console.error(err);
+            alert("Personel kaydedilirken hata oluştu!");
+        }
+    });
+
+    function editPersonnel(id) {
+        const p = personnelList.find(item => item.id === id);
+        if (!p) return;
+
+        document.getElementById('persEditId').value = p.id;
+        document.getElementById('newPersName').value = p.name || '';
+        document.getElementById('newPersUnit').value = p.unit || unitList[0];
+        document.getElementById('newPersStatus').value = p.status || 'Memur';
+        if (p.title && !titleList.includes(p.title)) {
+            titleList.push(p.title);
+            updateTitleDropdowns();
+        }
+        document.getElementById('newPersTitle').value = p.title || titleList[0];
+        document.getElementById('newPersPhone').value = p.phone || '';
+
+        document.getElementById('personnelFormTitle').innerText = 'Personel Bilgilerini Düzenle';
+        document.getElementById('btnPersSubmit').innerText = 'Değişiklikleri Kaydet';
+        document.getElementById('btnCancelPersEdit').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetPersonnelForm() {
+        document.getElementById('persEditId').value = '';
+        document.getElementById('addPersonnelForm').reset();
+        updateTitleDropdowns();
+        document.getElementById('personnelFormTitle').innerText = '👤 Personel Yönetimi (Ekle / Düzenle)';
+        document.getElementById('btnPersSubmit').innerText = 'Personel Ekle';
+        document.getElementById('btnCancelPersEdit').classList.add('hidden');
+    }
+
+    function renderPersonnelTable() {
+        const tbody = document.getElementById('personnelTableBody');
+        if (!tbody) return;
+
+        const fUnit = document.getElementById('filterPersUnit').value;
+        const fStatus = document.getElementById('filterPersStatus').value;
+        const fTitle = document.getElementById('filterPersTitle').value;
+
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
+            let matchStatus = (fStatus === 'ALL' || p.status === fStatus);
+            let matchTitle = (fTitle === 'ALL' || p.title === fTitle);
+            return matchUnit && matchStatus && matchTitle;
+        });
+
+        tbody.innerHTML = filtered.map(p => `
+            <tr>
+                <td><b>${p.name}</b></td>
+                <td>${p.unit}</td>
+                <td><span class="user-badge" style="background:var(--accent);">${p.status || 'Memur'}</span></td>
+                <td>${p.title || '-'}</td>
+                <td>${p.phone || '-'}</td>
+                <td style="display:flex; gap:4px;">
+                    <button class="btn-edit" onclick="editPersonnel('${p.id}')">Düzenle</button>
+                    <button class="btn-delete" onclick="deletePersonnel('${p.id}')">Sil</button>
+                </td>
+            </tr>
+        `).join('') || `<tr><td colspan="6" style="text-align:center;">Kriterlere uygun personel kaydı bulunmuyor.</td></tr>`;
+    }
+
+    async function deletePersonnel(id) {
+        if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
+        await db.collection("personnel").doc(id).delete();
+        personnelList = personnelList.filter(p => p.id !== id);
+        renderPersonnelTable();
+        populatePersonDropdown();
+        populateVehicleDriverDropdown();
+        updatePersonnelStats();
+    }
+
+    function updatePersonnelStats() {
+        const total = personnelList.length;
+        let memurCount = 0;
+        let isciCount = 0;
+        let sozlesmeliCount = 0;
+
+        personnelList.filter(Boolean).forEach(p => {
+            let st = p.status || '';
+            if (st === 'Memur') memurCount++;
+            else if (st === 'Şirket İşçisi') isciCount++;
+            else if (st === 'Sözleşmeli') sozlesmeliCount++;
+        });
+
+        let todayStr = new Date().toISOString().split('T')[0];
+        let izindeCount = 0;
+        let raporluCount = 0;
+
+        leaveList.forEach(l => {
+            if (l.startDate <= todayStr && l.endDate >= todayStr) {
+                let leaveType = String(l.type || '');
+                
+                if (leaveType.includes('Rapor') || leaveType.includes('Doğum') || leaveType.includes('Ücretsiz')) {
+                    raporluCount++;
+                } else {
+                    izindeCount++;
+                }
+            }
+        });
+
+        document.getElementById('statTotal').innerText = total;
+        document.getElementById('statMemur').innerText = memurCount;
+        document.getElementById('statIsci').innerText = isciCount;
+        document.getElementById('statSozlesmeli').innerText = sozlesmeliCount;
+        document.getElementById('statIzinde').innerText = izindeCount;
+        document.getElementById('statRaporlu').innerText = raporluCount;
+        
+        const leaveCountBadge = document.getElementById('leaveCountBadge');
+        if(leaveCountBadge) {
+            leaveCountBadge.innerText = izindeCount + raporluCount;
+        }
+    }
+
+    document.getElementById('leaveForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('leaveEditId').value;
+        const pId = document.getElementById('leavePersonSelect').value;
+        const person = personnelList.find(p => p.id === pId);
+        
+        const leaveObj = {
+            personId: pId,
+            personName: person ? person.name : '',
+            personUnit: person ? person.unit : '',
+            type: document.getElementById('leaveType').value,
+            startDate: document.getElementById('startDate').value,
+            endDate: document.getElementById('endDate').value,
+            images: selectedLeaveImageBase64List
+        };
+
+        try {
+            if (editId) {
+                await db.collection("leaves").doc(editId).update(leaveObj);
+                let idx = leaveList.findIndex(l => l.id === editId);
+                if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
+                alert("İzin/Rapor güncellendi.");
+            } else {
+                let docRef = await db.collection("leaves").add(leaveObj);
+                leaveList.push({ id: docRef.id, ...leaveObj });
+                alert("İzin/Rapor kaydedildi.");
+            }
+            resetLeaveForm();
+            renderLeaveTable();
+            updatePersonnelStats();
+        } catch (err) {
+            console.error(err);
+            alert("Kayıt sırasında hata oluştu!");
+        }
+    });
+
+    function editLeave(id) {
+        const l = leaveList.find(item => item.id === id);
+        if (!l) return;
+
+        const person = personnelList.find(p => p.id === l.personId);
+        if (currentUser.role !== 'ADMIN' && person && person.unit !== currentUser.unit) {
+            alert("Yalnızca kendi biriminizdeki personelin izinlerini düzenleyebilirsiniz!");
+            return;
+        }
+
+        document.getElementById('leaveEditId').value = l.id;
+        document.getElementById('leavePersonSelect').value = l.personId || '';
+        document.getElementById('leaveType').value = l.type || 'Yıllık İzin';
+        document.getElementById('startDate').value = l.startDate || '';
+        document.getElementById('endDate').value = l.endDate || '';
+
+        selectedLeaveImageBase64List = l.images ? [...l.images] : [];
+        renderLeaveImagePreviews();
+
+        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Bilgilerini Düzenle';
+        document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
+        document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetLeaveForm() {
+        document.getElementById('leaveEditId').value = '';
+        document.getElementById('leaveForm').reset();
+        selectedLeaveImageBase64List = [];
+        document.getElementById('leaveImgPreviewArea').innerHTML = '';
+        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydı Oluştur';
+        document.getElementById('btnLeaveSubmit').innerText = 'İzni Kaydet';
+        document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
+    }
+
+    function renderLeaveTable() {
+        const tbody = document.getElementById('leaveTableBody');
+        if (!tbody) return;
+
+        const fLeaveUnit = document.getElementById('filterLeaveUnit').value;
+        const filterLeaveTypeSelect = document.getElementById('filterLeaveType');
+
+        // Birim yetkilisi girdiğinde varsayılan süzgeci "Bugün İzinli Olanlar"a ayarla
+        if (currentUser && currentUser.role !== 'ADMIN' && !filterLeaveTypeSelect.dataset.userChanged) {
+            filterLeaveTypeSelect.value = 'TODAY';
+        }
+
+        const fLeaveType = filterLeaveTypeSelect.value;
+        let filteredLeaves = leaveList;
+
+        if (currentUser.role !== 'ADMIN') {
+            filteredLeaves = filteredLeaves.filter(l => {
+                const person = personnelList.find(p => p.id === l.personId);
+                const pUnit = person ? person.unit : (l.personUnit || '');
+                return pUnit.toLowerCase() === currentUser.unit.toLowerCase();
+            });
+        } else {
+            if (fLeaveUnit !== 'ALL') {
+                filteredLeaves = filteredLeaves.filter(l => {
+                    const person = personnelList.find(p => p.id === l.personId);
+                    const pUnit = person ? person.unit : (l.personUnit || '');
+                    return pUnit.toLowerCase() === fLeaveUnit.toLowerCase();
+                });
+            }
+        }
+
+        if (fLeaveType === 'TODAY') {
+            const todayStr = new Date().toISOString().split('T')[0];
+            filteredLeaves = filteredLeaves.filter(l => l.startDate <= todayStr && l.endDate >= todayStr);
+        } else if (fLeaveType !== 'ALL') {
+            filteredLeaves = filteredLeaves.filter(l => l.type === fLeaveType);
+        }
+
+        tbody.innerHTML = filteredLeaves.map(l => {
+            const person = personnelList.find(p => p.id === l.personId);
+            const pUnit = person ? person.unit : (l.personUnit || '-');
+            let imgHtml = l.images && l.images.length ? `<div class="img-preview-container">` + l.images.map(img => {
+                let displaySrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
+                return `<img src="${displaySrc}" onclick="openImageModal('${img}')">`;
+            }).join('') + `</div>` : '-';
+            return `
+                <tr>
+                    <td><b>${l.personName}</b></td>
+                    <td>${pUnit}</td>
+                    <td><span class="user-badge" style="background:var(--warning);">${l.type}</span></td>
+                    <td>${l.startDate} / ${l.endDate}</td>
+                    <td>${imgHtml}</td>
+                    <td style="display:flex; gap:4px;">
+                        <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
+                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;">İzin kaydı bulunmuyor.</td></tr>`;
+    }
+
+    // Kullanıcı elle izin türü filtresini değiştirirse takibe al
+    document.getElementById('filterLeaveType').addEventListener('change', function() {
+        this.dataset.userChanged = "true";
+    });
+
+    async function deleteLeave(id) {
+        const l = leaveList.find(item => item.id === id);
+        if (l) {
+            const person = personnelList.find(p => p.id === l.personId);
+            if (currentUser.role !== 'ADMIN' && person && person.unit !== currentUser.unit) {
+                alert("Yalnızca kendi biriminizdeki izin kayıtlarını silebilirsiniz!");
+                return;
+            }
+        }
+        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
+        await db.collection("leaves").doc(id).delete();
+        leaveList = leaveList.filter(l => l.id !== id);
+        renderLeaveTable();
+        updatePersonnelStats();
+    }
+
+    function renderReportPersonnelTable() {
+        const tbody = document.getElementById('reportPersonnelBody');
+        if (!tbody) return;
+
+        const filterUnit = document.getElementById('reportUnitFilter').value;
+        const filterStatus = document.getElementById('reportPersStatusFilter').value;
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (filterUnit === 'ALL' || p.unit === filterUnit);
+            
+            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            
+            let matchStatus = true;
+            if (filterStatus === 'IZINLI') {
+                matchStatus = activeLeave && !String(activeLeave.type).includes('Rapor') && !String(activeLeave.type).includes('Doğum') && !String(activeLeave.type).includes('Ücretsiz');
+            } else if (filterStatus === 'RAPORLU') {
+                matchStatus = activeLeave && (String(activeLeave.type).includes('Rapor') || String(activeLeave.type).includes('Doğum') || String(activeLeave.type).includes('Ücretsiz'));
+            } else if (filterStatus === 'AKTIF') {
+                matchStatus = !activeLeave;
+            }
+
+            return matchUnit && matchStatus;
+        });
+
+        tbody.innerHTML = filtered.map(p => {
+            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            let statusBadge = `<span class="user-badge" style="background:var(--success);">Görevde / Aktif</span>`;
+            if (activeLeave) {
+                let isRapor = String(activeLeave.type).includes('Rapor');
+                statusBadge = `<span class="user-badge" style="background:${isRapor?'var(--danger)':'var(--warning)'};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+            }
+
+            return `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.unit}</td>
+                    <td>${p.status || '-'}</td>
+                    <td>${p.title || '-'}</td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kriterlere uygun personel bulunamadı.</td></tr>`;
+    }
+
+    function renderReportTable() {
+        renderReportPersonnelTable();
+        const tbody = document.getElementById('reportTableBody');
+        if (!tbody) return;
+        const filterUnit = document.getElementById('reportUnitFilter').value;
+        const filtered = workProgramList.filter(w => filterUnit === 'ALL' || w.unit === filterUnit);
+        
+        tbody.innerHTML = filtered.map(w => {
+            let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
+            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
+            return `<tr><td>${w.unit}</td><td>${dayObj ? dayObj.fullLabel : ''}</td><td>${w.timeStr || '-'}</td><td>${w.title}</td><td>${statusLabel}</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıt bulunamadı.</td></tr>`;
+    }
+
+    window.onload = function() {
+        const saved = localStorage.getItem('activeSession');
+        if (saved) {
+            currentUser = JSON.parse(saved);
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            setupSessionUI();
+        } else {
+            loadDataFromCloud();
+        }
+    };
+</script>
+</body>
+</html>
