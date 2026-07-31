@@ -821,6 +821,7 @@
             counter.innerText = `${currentModalIndex + 1} / ${currentModalImages.length}`;
         }
 
+        // Eğer birden fazla resim varsa ok butonlarını göster, tekse gizle
         if (currentModalImages.length > 1) {
             if (prevBtn) prevBtn.style.display = 'flex';
             if (nextBtn) nextBtn.style.display = 'flex';
@@ -853,6 +854,7 @@
         }
     }
 
+    // Klavye Ok Tuşları Desteği
     document.addEventListener('keydown', function(e) {
         const modal = document.getElementById('imageModal');
         if (modal && modal.classList.contains('active')) {
@@ -934,6 +936,7 @@
             if (currentVal) el.value = currentVal;
         });
 
+        // Birim kullanıcısı girdiğinde İzin Filtresini kendi birimine sabitleme
         const leaveUnitSelect = document.getElementById('filterLeaveUnit');
         if (leaveUnitSelect && currentUser && currentUser.role !== 'ADMIN') {
             leaveUnitSelect.value = currentUser.unit;
@@ -2097,7 +2100,7 @@
         document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
     }
 
-    function renderLeaveTable() {
+   function renderLeaveTable() {
         const tbody = document.getElementById('leaveTableBody');
         if (!tbody) return;
 
@@ -2106,9 +2109,15 @@
         const todayStr = new Date().toISOString().split('T')[0];
 
         const filtered = leaveList.filter(l => {
-            let matchUnit = (fUnit === 'ALL' || (l.unit && l.unit.toLowerCase() === fUnit.toLowerCase()));
-            let matchType = true;
+            // Birim filtresi kontrolü (Büyük/küçük harf duyarsız ve boşluksuz karşılaştırma için esnek yapı)
+            let matchUnit = true;
+            if (fUnit !== 'ALL') {
+                let leaveUnitClean = (l.unit || '').trim().toLowerCase();
+                let filterUnitClean = fUnit.trim().toLowerCase();
+                matchUnit = (leaveUnitClean === filterUnitClean);
+            }
 
+            let matchType = true;
             if (fType === 'TODAY') {
                 matchType = (l.startDate <= todayStr && l.endDate >= todayStr);
             } else if (fType !== 'ALL') {
@@ -2123,18 +2132,19 @@
             let docPreview = '-';
             if (l.images && l.images.length > 0) {
                 const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
-                docPreview = `<div class="img-preview-container">` + l.images.map(img => {
+                docPrev = `<div class="img-preview-container">` + l.images.map(img => {
                     let thumb = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
                     return `<img src="${thumb}" onclick="openImageModal('${img}', ${listStr})">`;
                 }).join('') + `</div>`;
+                docPreview = docPrev;
             }
 
             return `
                 <tr>
                     <td><b>${l.personnelName || '-'}</b></td>
                     <td>${l.unit || '-'}</td>
-                    <td><span class="user-badge" style="background:var(--accent);">${l.type || '-'}</span></td>
-                    <td>${l.startDate || ''} / ${l.endDate || ''}</td>
+                    <td><span class="user-badge" style="background:${l.type && l.type.includes('Rapor')?'var(--danger)':'var(--warning)'};">${l.type || '-'}</span></td>
+                    <td>${l.startDate || ''} ~ ${l.endDate || ''}</td>
                     <td>${docPreview}</td>
                     <td style="display:flex; gap:4px;">
                         <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
@@ -2155,75 +2165,79 @@
 
     function renderReportPersonnelTable() {
         const tbody = document.getElementById('reportPersonnelBody');
-        if (!tbody) return;
-
-        const fUnit = document.getElementById('reportUnitFilter').value;
-        const fStatus = document.getElementById('reportPersStatusFilter').value;
+        const unitFilter = document.getElementById('reportUnitFilter').value;
+        const statusFilter = document.getElementById('reportPersStatusFilter').value;
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const filtered = personnelList.filter(p => {
-            let matchUnit = (fUnit === 'ALL' || (p.unit && p.unit.toLowerCase() === fUnit.toLowerCase()));
-            let activeLeave = leaveList.find(l => l.personnelId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+        if (!tbody) return;
 
-            if (fStatus === 'IZINLI') {
-                return matchUnit && activeLeave && (!activeLeave.type || !activeLeave.type.includes('Rapor'));
-            } else if (fStatus === 'RAPORLU') {
-                return matchUnit && activeLeave && activeLeave.type && activeLeave.type.includes('Rapor');
-            } else if (fStatus === 'AKTIF') {
-                return matchUnit && !activeLeave;
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (unitFilter === 'ALL' || p.unit === unitFilter);
+            let currentLeave = leaveList.find(l => l.personnelId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+
+            if (statusFilter === 'IZINLI') {
+                return matchUnit && currentLeave && !currentLeave.type.includes('Rapor');
+            } else if (statusFilter === 'RAPORLU') {
+                return matchUnit && currentLeave && currentLeave.type.includes('Rapor');
+            } else if (statusFilter === 'AKTIF') {
+                return matchUnit && !currentLeave;
             }
             return matchUnit;
         });
 
         tbody.innerHTML = filtered.map(p => {
-            let activeLeave = leaveList.find(l => l.personnelId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            let statusBadgeHtml = `<span class="user-badge" style="background:var(--success);">Görevde / Aktif</span>`;
-            
-            if (activeLeave) {
-                let badgeColor = activeLeave.type && activeLeave.type.includes('Rapor') ? 'var(--danger)' : 'var(--warning)';
-                statusBadgeHtml = `<span class="user-badge" style="background:${badgeColor};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+            let currentLeave = leaveList.find(l => l.personnelId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            let statusBadgeHtml = '<span class="user-badge" style="background:var(--success)">Görevde / Aktif</span>';
+            if (currentLeave) {
+                let badgeColor = currentLeave.type.includes('Rapor') ? 'var(--danger)' : 'var(--warning)';
+                statusBadgeHtml = `<span class="user-badge" style="background:${badgeColor}">${currentLeave.type} (${currentLeave.startDate} - ${currentLeave.endDate})</span>`;
             }
 
             return `
                 <tr>
-                    <td><b>${p.name || '-'}</b></td>
-                    <td>${p.unit || '-'}</td>
-                    <td>${p.status || '-'}</td>
-                    <td>${p.title || '-'}</td>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.unit}</td>
+                    <td>${p.status}</td>
+                    <td>${p.title}</td>
                     <td>${statusBadgeHtml}</td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Filtreye uygun personel bulunamadı.</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kriterlere uygun personel bulunamadı.</td></tr>`;
     }
 
     function renderReportTable() {
         const tbody = document.getElementById('reportTableBody');
+        const unitFilter = document.getElementById('reportUnitFilter').value;
         if (!tbody) return;
-        
-        const fUnit = document.getElementById('reportUnitFilter').value;
-        const filteredWorks = workProgramList.filter(w => fUnit === 'ALL' || w.unit === fUnit);
 
-        tbody.innerHTML = filteredWorks.map(w => {
-            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
+        const filtered = workProgramList.filter(w => {
+            return (unitFilter === 'ALL' || w.unit === unitFilter);
+        });
+
+        tbody.innerHTML = filtered.map(w => {
             let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
-            let dayStr = dayObj ? dayObj.fullLabel : `${w.dayIndex}. Gün`;
+            let dayName = dayObj ? dayObj.fullLabel : 'Bilinmiyor';
+            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
 
             return `
                 <tr>
                     <td><b>${w.unit}</b></td>
-                    <td>${dayStr}</td>
+                    <td>${dayName}</td>
                     <td>${w.timeStr || '-'}</td>
                     <td>${w.title}</td>
                     <td>${statusLabel}</td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıtlı görev bulunmuyor.</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıtlı görev bulunamadı.</td></tr>`;
+
+        renderReportPersonnelTable();
     }
 
+    // Uygulama Açılış Kontrolü
     window.onload = function() {
-        const session = localStorage.getItem('activeSession');
-        if (session) {
-            currentUser = JSON.parse(session);
+        const savedSession = localStorage.getItem('activeSession');
+        if (savedSession) {
+            currentUser = JSON.parse(savedSession);
             document.getElementById('loginOverlay').classList.add('hidden');
             document.getElementById('mainApp').classList.remove('hidden');
             setupSessionUI();
