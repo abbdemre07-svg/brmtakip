@@ -44,7 +44,7 @@
         }
         header h2 { font-size: 1.1rem; text-align: center; }
 
-        .nav-tabs { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .nav-tabs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
         @media (max-width: 900px) {
             .nav-tabs { grid-template-columns: repeat(4, 1fr); }
         }
@@ -161,6 +161,17 @@
             position: absolute; bottom: -35px; left: 50%; transform: translateX(-50%);
             color: white; font-size: 0.9rem; font-weight: bold; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 20px;
         }
+
+        /* BORDRO HESAPLAMA EKRAN KARTLARI STİLİ */
+        .payroll-result-box {
+            background: #f8fafc; border: 1px solid var(--accent); border-radius: 8px; padding: 15px; margin-top: 15px;
+        }
+        .payroll-row {
+            display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 0.85rem;
+        }
+        .payroll-row.total {
+            border-bottom: none; border-top: 2px solid var(--accent); font-weight: bold; font-size: 1rem; color: var(--accent); margin-top: 5px; padding-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -201,6 +212,7 @@
             <button class="tab-btn active" onclick="switchTab('weeklyTab', event)">📅 Haftalık Program</button>
             <button class="tab-btn" onclick="switchTab('leaveTab', event)">📄 İzinler</button>
             <button class="tab-btn" onclick="switchTab('vehicleTab', event)">🚗 Araçlar</button>
+            <button class="tab-btn hidden" onclick="switchTab('payrollTab', event)" id="tabPayrollBtn">💰 Bordro Hesaplama</button>
             <button class="tab-btn hidden" onclick="switchTab('reportTab', event)" id="tabReportBtn">📊 Rapor</button>
             <button class="tab-btn hidden" onclick="switchTab('personnelTab', event)" id="tabPersonnelBtn">👤 Personel</button>
             <button class="tab-btn hidden" onclick="switchTab('addUnitTab', event)" id="tabAddUnitBtn">🏢 Birim Ekle</button>
@@ -454,7 +466,7 @@
                             <option value="MOTOSİKLET">MOTOSİKLET</option>
                             <option value="İŞ MAKİNESİ">İŞ MAKİNESİ</option>
                             <option value="TRAKTÖR">TRAKTÖR</option>
-                            <option value="SEPETLİ ARAÇ">SEPETLİ-ARAÇ</option>
+                            <option value="SEPETLİ ARACI">SEPETLİ-ARAÇ</option>
                             <option value="MİNİ YOL SÜPÜRME ARACI">MİNİ YOL SÜPÜRME ARACI</option>
                         </select>
                     </div>
@@ -603,6 +615,111 @@
                         </tr>
                     </thead>
                     <tbody id="vehicleTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PERSONEL BORDRO HESAPLAMA SEKMESİ -->
+    <div id="payrollTab" class="tab-content">
+        <div class="card">
+            <h2>💰 Personel Bordro Hesaplama Motoru</h2>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Personelin maaş, mesai, prim ve kesintilerini hesaplayarak resmi maaş pusulası / bordro dökümü hazırlayın.</p>
+            
+            <form id="payrollForm" onsubmit="event.preventDefault(); calculatePayroll();">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Personel Seçiniz</label>
+                        <select id="payrollPersonSelect" required onchange="onPayrollPersonChange()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Bordro Dönemi (Ay/Yıl)</label>
+                        <input type="month" id="payrollPeriod" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Aylık Brüt Ücret (TL)</label>
+                        <input type="number" step="0.01" id="payrollBaseGross" placeholder="Örn: 30000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fazla Mesai Saati</label>
+                        <input type="number" step="0.5" id="payrollOvertimeHours" value="0" placeholder="Örn: 10">
+                    </div>
+                    <div class="form-group">
+                        <label>Mesai Katsayısı / Saat Ücret Artışı</label>
+                        <select id="payrollOvertimeRate">
+                            <option value="1.5">%50 Zamlı (Normal Gün)</option>
+                            <option value="2.0">%100 Zamlı (Pazar/Resmi Tatil)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Prim / İkramiye (TL)</label>
+                        <input type="number" step="0.01" id="payrollBonus" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Yol / Yemek Yardımı (TL)</label>
+                        <input type="number" step="0.01" id="payrollAllowance" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Diğer Kesintiler / Avans (TL)</label>
+                        <input type="number" step="0.01" id="payrollDeductions" value="0">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button type="button" class="btn-add" style="background:#475569;" onclick="resetPayrollForm()">Temizle</button>
+                    <button type="submit" class="btn-submit">🧮 Bordro Hesapla</button>
+                </div>
+            </form>
+
+            <!-- HESAPLAMA SONUÇLARI KARTI -->
+            <div id="payrollResultContainer" class="payroll-result-box hidden">
+                <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 10px; border-bottom: 2px solid var(--accent); padding-bottom: 4px;">📑 Bordro Özeti & Maaş Pusulası</h3>
+                
+                <div class="payroll-row"><span>Hesaplanan Personel:</span><span id="resPersonName" style="font-weight: bold;">-</span></div>
+                <div class="payroll-row"><span>Bordro Dönemi:</span><span id="resPeriod">-</span></div>
+                <div class="payroll-row"><span>Taban Brüt Ücret:</span><span id="resBaseGross">0.00 TL</span></div>
+                <div class="payroll-row"><span>Mesai Ücreti:</span><span id="resOvertimePay">0.00 TL</span></div>
+                <div class="payroll-row"><span>Ek Ödemeler (Prim/Yardım):</span><span id="resAdditions">0.00 TL</span></div>
+                <div class="payroll-row" style="background:#e2e8f0; font-weight:bold;"><span>TOPLAM BRÜT KAZANÇ:</span><span id="resTotalGross">0.00 TL</span></div>
+                
+                <div class="payroll-row" style="color:var(--danger);"><span>SGK İşçi Payı (%14):</span><span id="resSgkWorker">0.00 TL</span></div>
+                <div class="payroll-row" style="color:var(--danger);"><span>İşsizlik Sigortası Payı (%1):</span><span id="resUnemployment">0.00 TL</span></div>
+                <div class="payroll-row" style="color:var(--danger);"><span>Gelir Vergisi (%15 Net):</span><span id="resIncomeTax">0.00 TL</span></div>
+                <div class="payroll-row" style="color:var(--danger);"><span>Damga Vergisi (%0.759):</span><span id="resStampTax">0.00 TL</span></div>
+                <div class="payroll-row" style="color:var(--danger);"><span>Avans / Diğer Kesintiler:</span><span id="resOtherDeductions">0.00 TL</span></div>
+                
+                <div class="payroll-row total"><span>NET ELE GEÇEN TUTAR:</span><span id="resNetSalary">0.00 TL</span></div>
+
+                <div style="display: flex; gap: 8px; margin-top: 15px;">
+                    <button type="button" class="btn-pdf" onclick="exportPayrollPDF()">📄 PDF Maaş Pusulası İndir</button>
+                    <button type="button" class="btn-excel" onclick="savePayrollToCloud()">💾 Bordroyu Kaydet</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- BORDRO GEÇMİŞİ LİSTESİ -->
+        <div class="card">
+            <h2>📜 Kayıtlı Bordro Geçmişi</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Dönem</th>
+                            <th>Personel</th>
+                            <th>Birim</th>
+                            <th>Toplam Brüt</th>
+                            <th>Kesintiler</th>
+                            <th>Net Ödenen</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payrollTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -786,6 +903,9 @@
     let leaveList = [];
     let workProgramList = [];
     let vehicleList = [];
+    let payrollList = [];
+    let currentCalculatedPayroll = null;
+
     let selectedImageBase64List = [];
     let selectedLeaveImageBase64List = [];
     let weekDaysData = [];
@@ -904,10 +1024,16 @@
             vehicleList = [];
             vehSnapshot.forEach(doc => vehicleList.push({ id: doc.id, ...doc.data() }));
 
+            const paySnapshot = await db.collection("payrolls").get();
+            payrollList = [];
+            paySnapshot.forEach(doc => payrollList.push({ id: doc.id, ...doc.data() }));
+
             updateUnitDropdowns();
             updateTitleDropdowns();
             updateVehicleFilterDropdowns();
             populateVehicleDriverDropdown();
+            populatePayrollPersonDropdown();
+            renderPayrollTable();
             renderUI();
         } catch (error) {
             console.error("Veri çekme hatası:", error);
@@ -1176,6 +1302,7 @@
         updateUnitDropdowns();
         updateTitleDropdowns();
         populateVehicleDriverDropdown();
+        populatePayrollPersonDropdown();
 
         const leaveUnitFilterWrap = document.getElementById('leaveUnitFilterWrap');
         if(leaveUnitFilterWrap) leaveUnitFilterWrap.style.display = 'block';
@@ -1185,6 +1312,7 @@
             statusBadge.className = 'user-badge';
             document.getElementById('tabPersonnelBtn').classList.remove('hidden');
             document.getElementById('tabReportBtn').classList.remove('hidden');
+            document.getElementById('tabPayrollBtn').classList.remove('hidden');
             document.getElementById('tabAddUnitBtn').classList.remove('hidden');
             document.getElementById('tabAddTitleBtn').classList.remove('hidden');
             document.getElementById('adminUnitSelectorCard').classList.remove('hidden');
@@ -1195,6 +1323,7 @@
             statusBadge.className = 'user-badge unit';
             document.getElementById('tabPersonnelBtn').classList.add('hidden');
             document.getElementById('tabReportBtn').classList.add('hidden');
+            document.getElementById('tabPayrollBtn').classList.remove('hidden');
             document.getElementById('tabAddUnitBtn').classList.add('hidden');
             document.getElementById('tabAddTitleBtn').classList.add('hidden');
             document.getElementById('adminUnitSelectorCard').classList.add('hidden');
@@ -1227,6 +1356,10 @@
         }
         if (tabId === 'leaveTab') {
             renderLeaveTable();
+        }
+        if (tabId === 'payrollTab') {
+            populatePayrollPersonDropdown();
+            renderPayrollTable();
         }
     }
 
@@ -1922,6 +2055,7 @@
             renderPersonnelTable();
             populatePersonDropdown();
             populateVehicleDriverDropdown();
+            populatePayrollPersonDropdown();
             updatePersonnelStats();
         } catch (err) {
             console.error(err);
@@ -1996,6 +2130,7 @@
         renderPersonnelTable();
         populatePersonDropdown();
         populateVehicleDriverDropdown();
+        populatePayrollPersonDropdown();
         updatePersonnelStats();
     }
 
@@ -2027,218 +2162,220 @@
         document.getElementById('statRaporlu').innerText = raporluCount;
     }
 
-    /* İZİN TAKİBİ FONKSİYONLARI */
-    document.getElementById('leaveForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const editId = document.getElementById('leaveEditId').value;
-        const personId = document.getElementById('leavePersonSelect').value;
-        const personObj = personnelList.find(p => p.id === personId);
+    // ==========================================
+    // BORDRO HESAPLAMA FONKSİYONLARI (YENİ EKLENEN)
+    // ==========================================
+    function populatePayrollPersonDropdown() {
+        const sel = document.getElementById('payrollPersonSelect');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Personel Seçiniz</option>';
+        
+        let targetPersonnel = personnelList;
+        if (currentUser && currentUser.role !== 'ADMIN') {
+            targetPersonnel = personnelList.filter(p => p.unit === currentUser.unit);
+        }
 
-        if (!personObj) {
-            alert("Lütfen bir personel seçin!");
+        targetPersonnel.forEach(p => {
+            sel.innerHTML += `<option value="${p.id}">${p.name} (${p.unit} - ${p.title || ''})</option>`;
+        });
+    }
+
+    function onPayrollPersonChange() {
+        resetPayrollForm(false);
+    }
+
+    function calculatePayroll() {
+        const personId = document.getElementById('payrollPersonSelect').value;
+        const period = document.getElementById('payrollPeriod').value;
+        const baseGross = parseFloat(document.getElementById('payrollBaseGross').value) || 0;
+        const overtimeHours = parseFloat(document.getElementById('payrollOvertimeHours').value) || 0;
+        const overtimeRate = parseFloat(document.getElementById('payrollOvertimeRate').value) || 1.5;
+        const bonus = parseFloat(document.getElementById('payrollBonus').value) || 0;
+        const allowance = parseFloat(document.getElementById('payrollAllowance').value) || 0;
+        const deductions = parseFloat(document.getElementById('payrollDeductions').value) || 0;
+
+        if (!personId || !period || baseGross <= 0) {
+            alert("Lütfen geçerli bir personel, dönem ve brüt ücret giriniz!");
             return;
         }
 
-        const leaveObj = {
-            personId: personId,
-            personName: personObj.name,
-            unit: personObj.unit,
-            type: document.getElementById('leaveType').value,
-            startDate: document.getElementById('startDate').value,
-            endDate: document.getElementById('endDate').value,
-            images: selectedLeaveImageBase64List,
+        const person = personnelList.find(p => p.id === personId);
+        if (!person) return;
+
+        // Hesaplama Mantığı (Standart Türkiye Bordro Matrahı)
+        const hourlyRate = baseGross / 225; // Aylık 225 saat esas alınır
+        const overtimePay = overtimeHours * hourlyRate * overtimeRate;
+        const totalAdditions = bonus + allowance;
+        const totalGross = baseGross + overtimePay + totalAdditions;
+
+        const sgkWorker = totalGross * 0.14; // SGK İşçi Payı %14
+        const unemploymentWorker = totalGross * 0.01; // İşsizlik %1
+        const taxBase = totalGross - (sgkWorker + unemploymentWorker); // Gelir Vergisi Matrahı
+
+        let incomeTax = taxBase * 0.15; // Standart %15 Gelir Vergisi
+        const stampTax = totalGross * 0.00759; // Damga Vergisi %0.759
+
+        // Net Maaş
+        const totalCut = sgkWorker + unemploymentWorker + incomeTax + stampTax + deductions;
+        const netSalary = totalGross - totalCut;
+
+        currentCalculatedPayroll = {
+            personId: person.id,
+            personName: person.name,
+            personUnit: person.unit,
+            personTitle: person.title || '',
+            period: period,
+            baseGross: baseGross,
+            overtimeHours: overtimeHours,
+            overtimePay: overtimePay,
+            bonus: bonus,
+            allowance: allowance,
+            totalGross: totalGross,
+            sgkWorker: sgkWorker,
+            unemploymentWorker: unemploymentWorker,
+            incomeTax: incomeTax,
+            stampTax: stampTax,
+            deductions: deductions,
+            totalCut: totalCut,
+            netSalary: netSalary,
             createdAt: new Date().toISOString()
         };
 
-        try {
-            if (editId) {
-                await db.collection("leaves").doc(editId).update(leaveObj);
-                let idx = leaveList.findIndex(l => l.id === editId);
-                if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
-                alert("İzin kaydı güncellendi.");
-            } else {
-                let docRef = await db.collection("leaves").add(leaveObj);
-                leaveList.push({ id: docRef.id, ...leaveObj });
-                alert("İzin kaydı oluşturuldu.");
-            }
-            resetLeaveForm();
-            renderLeaveTable();
-            updatePersonnelStats();
-        } catch (err) {
-            console.error(err);
-            alert("İzin kaydedilirken hata oluştu!");
+        // Sonuçları Ekran Bileşenlerine Yansıt
+        document.getElementById('resPersonName').innerText = `${person.name} (${person.unit})`;
+        document.getElementById('resPeriod').innerText = period;
+        document.getElementById('resBaseGross').innerText = baseGross.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resOvertimePay').innerText = overtimePay.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resAdditions').innerText = totalAdditions.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resTotalGross').innerText = totalGross.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        
+        document.getElementById('resSgkWorker').innerText = '-' + sgkWorker.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resUnemployment').innerText = '-' + unemploymentWorker.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resIncomeTax').innerText = '-' + incomeTax.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resStampTax').innerText = '-' + stampTax.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        document.getElementById('resOtherDeductions').innerText = '-' + deductions.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+        
+        document.getElementById('resNetSalary').innerText = netSalary.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL';
+
+        document.getElementById('payrollResultContainer').classList.remove('hidden');
+    }
+
+    function resetPayrollForm(clearPerson = true) {
+        if(clearPerson) document.getElementById('payrollPersonSelect').value = '';
+        document.getElementById('payrollPeriod').value = '';
+        document.getElementById('payrollBaseGross').value = '';
+        document.getElementById('payrollOvertimeHours').value = '0';
+        document.getElementById('payrollBonus').value = '0';
+        document.getElementById('payrollAllowance').value = '0';
+        document.getElementById('payrollDeductions').value = '0';
+        document.getElementById('payrollResultContainer').classList.add('hidden');
+        currentCalculatedPayroll = null;
+    }
+
+    async function savePayrollToCloud() {
+        if (!currentCalculatedPayroll) {
+            alert("Önce bir bordro hesaplaması yapmalısınız!");
+            return;
         }
-    });
 
-    function editLeave(id) {
-        const l = leaveList.find(item => item.id === id);
-        if (!l) return;
-
-        document.getElementById('leaveEditId').value = l.id;
-        document.getElementById('leavePersonSelect').value = l.personId;
-        document.getElementById('leaveType').value = l.type;
-        document.getElementById('startDate').value = l.startDate;
-        document.getElementById('endDate').value = l.endDate;
-
-        selectedLeaveImageBase64List = l.images ? [...l.images] : [];
-        renderLeaveImagePreviews();
-
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydını Düzenle';
-        document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function resetLeaveForm() {
-        document.getElementById('leaveEditId').value = '';
-        document.getElementById('leaveForm').reset();
-        selectedLeaveImageBase64List = [];
-        document.getElementById('leaveImgPreviewArea').innerHTML = '';
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydı Oluştur';
-        document.getElementById('btnLeaveSubmit').innerText = 'İzni Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
-    }
-
-    async function deleteLeave(id) {
-        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
         try {
-            await db.collection("leaves").doc(id).delete();
-            leaveList = leaveList.filter(l => l.id !== id);
-            renderLeaveTable();
-            updatePersonnelStats();
-        } catch (err) {
-            alert("Silme işlemi başarısız!");
+            let docRef = await db.collection("payrolls").add(currentCalculatedPayroll);
+            payrollList.push({ id: docRef.id, ...currentCalculatedPayroll });
+            alert("Bordro kaydı veritabanına başarıyla eklendi.");
+            renderPayrollTable();
+        } catch (e) {
+            console.error("Bordro kaydedilemedi:", e);
+            alert("Hata oluştu, kaydedilemedi.");
         }
     }
 
-    function renderLeaveTable() {
-        const tbody = document.getElementById('leaveTableBody');
+    function renderPayrollTable() {
+        const tbody = document.getElementById('payrollTableBody');
         if (!tbody) return;
 
-        const fUnit = document.getElementById('filterLeaveUnit') ? document.getElementById('filterLeaveUnit').value : 'ALL';
-        const fType = document.getElementById('filterLeaveType') ? document.getElementById('filterLeaveType').value : 'ALL';
-        const todayStr = new Date().toISOString().split('T')[0];
+        let filtered = payrollList;
+        if (currentUser && currentUser.role !== 'ADMIN') {
+            filtered = payrollList.filter(p => p.personUnit === currentUser.unit);
+        }
 
-        const filtered = leaveList.filter(l => {
-            let userUnit = currentUser && currentUser.role !== 'ADMIN' ? currentUser.unit : null;
-            if (userUnit && l.unit && l.unit.toLowerCase() !== userUnit.toLowerCase()) {
-                return false;
-            }
-
-            let matchUnit = (fUnit === 'ALL' || l.unit === fUnit);
-            let matchType = true;
-            if (fType === 'TODAY') {
-                matchType = (l.startDate <= todayStr && l.endDate >= todayStr);
-            } else if (fType !== 'ALL') {
-                matchType = (l.type === fType);
-            }
-
-            return matchUnit && matchType;
-        });
-
-        const badgeEl = document.getElementById('leaveCountBadge');
-        if (badgeEl) badgeEl.innerText = filtered.length;
-
-        tbody.innerHTML = filtered.map(l => {
-            let imgHtml = '-';
-            if (l.images && l.images.length > 0) {
-                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
-                imgHtml = `<div class="img-preview-container">` + l.images.map(img => {
-                    let thumbSrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-                    return `<img src="${thumbSrc}" onclick="openImageModal('${img}', ${listStr})">`;
-                }).join('') + `</div>`;
-            }
-
-            return `
-                <tr>
-                    <td><b>${l.personName || '-'}</b></td>
-                    <td>${l.unit || '-'}</td>
-                    <td><span class="user-badge" style="background:var(--warning);">${l.type || '-'}</span></td>
-                    <td>${l.startDate} / ${l.endDate}</td>
-                    <td>${imgHtml}</td>
-                    <td style="display:flex; gap:4px;">
-                        <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
-                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
-                    </td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin/rapor bulunmuyor.</td></tr>`;
+        tbody.innerHTML = filtered.map(p => `
+            <tr>
+                <td><b>${p.period || '-'}</b></td>
+                <td>${p.personName || '-'}</td>
+                <td>${p.personUnit || '-'}</td>
+                <td>${(p.totalGross || 0).toLocaleString('tr-TR', {minimumFractionDigits: 2})} TL</td>
+                <td style="color:var(--danger);">${(p.totalCut || 0).toLocaleString('tr-TR', {minimumFractionDigits: 2})} TL</td>
+                <td style="color:var(--success); font-weight:bold;">${(p.netSalary || 0).toLocaleString('tr-TR', {minimumFractionDigits: 2})} TL</td>
+                <td>
+                    <button class="btn-delete" onclick="deletePayroll('${p.id}')">Sil</button>
+                </td>
+            </tr>
+        `).join('') || `<tr><td colspan="7" style="text-align:center;">Kayıtlı bordro bulunmuyor.</td></tr>`;
     }
 
-    /* RAPOR SEKMESİ FONKSİYONLARI */
-    function renderReportPersonnelTable() {
-        const tbody = document.getElementById('reportPersonnelBody');
-        if (!tbody) return;
-
-        const unitFilter = document.getElementById('reportUnitFilter').value;
-        const statusFilter = document.getElementById('reportPersStatusFilter').value;
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const filtered = personnelList.filter(p => {
-            let matchUnit = (unitFilter === 'ALL' || p.unit === unitFilter);
-            let leave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-
-            let matchStatus = true;
-            if (statusFilter === 'IZINLI') {
-                matchStatus = (leave && !leave.type.includes('Rapor'));
-            } else if (statusFilter === 'RAPORLU') {
-                matchStatus = (leave && leave.type.includes('Rapor'));
-            } else if (statusFilter === 'AKTIF') {
-                matchStatus = !leave;
-            }
-
-            return matchUnit && matchStatus;
-        });
-
-        tbody.innerHTML = filtered.map(p => {
-            let leave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            let stateBadge = leave ? `<span class="user-badge" style="background:var(--warning);">${leave.type} (${leave.endDate}'e kadar)</span>` : `<span class="user-badge unit">Görevde / Aktif</span>`;
-
-            return `
-                <tr>
-                    <td><b>${p.name}</b></td>
-                    <td>${p.unit}</td>
-                    <td>${p.status}</td>
-                    <td>${p.title}</td>
-                    <td>${stateBadge}</td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Süzgeçlere uygun personel bulunamadı.</td></tr>`;
+    async function deletePayroll(id) {
+        if (!confirm("Bu bordro kaydını silmek istediğinize emin misiniz?")) return;
+        await db.collection("payrolls").doc(id).delete();
+        payrollList = payrollList.filter(p => p.id !== id);
+        renderPayrollTable();
     }
 
-    function renderReportTable() {
-        renderReportPersonnelTable();
-        const tbody = document.getElementById('reportTableBody');
-        if (!tbody) return;
+    function exportPayrollPDF() {
+        if (!currentCalculatedPayroll) {
+            alert("PDF indirmek için lütfen önce hesaplama yapın!");
+            return;
+        }
 
-        const unitFilter = document.getElementById('reportUnitFilter').value;
+        const p = currentCalculatedPayroll;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
 
-        const filteredWorks = workProgramList.filter(w => {
-            return unitFilter === 'ALL' || w.unit === unitFilter;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text(turkishToEnglish("MAAS PUSULASI / BORDRO ZARFI"), 105, 15, { align: "center" });
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(turkishToEnglish(`Donem: ${p.period} | Tarih: ${new Date().toLocaleDateString('tr-TR')}`), 105, 21, { align: "center" });
+
+        doc.setFont("helvetica", "bold");
+        doc.text(turkishToEnglish("PERSONEL BILGILERI"), 14, 30);
+        doc.line(14, 32, 196, 32);
+
+        doc.setFont("helvetica", "normal");
+        doc.text(turkishToEnglish(`Ad Soyad: ${p.personName}`), 14, 38);
+        doc.text(turkishToEnglish(`Birim: ${p.personUnit}`), 14, 44);
+        doc.text(turkishToEnglish(`Unvan: ${p.personTitle}`), 105, 44);
+
+        const tableData = [
+            [turkishToEnglish("Taban Brut Ucret"), `${p.baseGross.toFixed(2)} TL`, turkishToEnglish("SGK Isci Payi (%14)"), `${p.sgkWorker.toFixed(2)} TL`],
+            [turkishToEnglish("Fazla Mesai Ucreti"), `${p.overtimePay.toFixed(2)} TL`, turkishToEnglish("Issizlik Sigortasi (%1)"), `${p.unemploymentWorker.toFixed(2)} TL`],
+            [turkishToEnglish("Ek Prim ve Yardimlar"), `${(p.bonus + p.allowance).toFixed(2)} TL`, turkishToEnglish("Gelir Vergisi (%15)"), `${p.incomeTax.toFixed(2)} TL`],
+            [turkishToEnglish("-"), "-", turkishToEnglish("Damga Vergisi (%0.759)"), `${p.stampTax.toFixed(2)} TL`],
+            [turkishToEnglish("-"), "-", turkishToEnglish("Diger Kesintiler / Avans"), `${p.deductions.toFixed(2)} TL`],
+            [turkishToEnglish("TOPLAM BRUT HAKEDIS"), `${p.totalGross.toFixed(2)} TL`, turkishToEnglish("TOPLAM KESINTI"), `${p.totalCut.toFixed(2)} TL`]
+        ];
+
+        doc.autoTable({
+            head: [["Hakedis Kalemi", "Tutar", "Kesinti Kalemi", "Tutar"]],
+            body: tableData,
+            startY: 50,
+            theme: 'grid',
+            styles: { fontSize: 8.5, font: 'helvetica' },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255] }
         });
 
-        tbody.innerHTML = filteredWorks.map(w => {
-            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
-            let dayName = dayNames[w.dayIndex] || `Gün ${w.dayIndex + 1}`;
-            return `
-                <tr>
-                    <td><b>${w.unit}</b></td>
-                    <td>${dayName}</td>
-                    <td>${w.timeStr || '-'}</td>
-                    <td>${w.title}</td>
-                    <td>${statusLabel}</td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen birime ait görev bulunamadı.</td></tr>`;
-    }
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text(turkishToEnglish(`NET ODENEN MAAS: ${p.netSalary.toFixed(2)} TL`), 14, finalY);
 
-    // Oturum Kontrolü ve Başlatma
-    const savedUser = localStorage.getItem('activeSession');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('mainApp').classList.remove('hidden');
-        setupSessionUI();
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(turkishToEnglish("Teslim Eden (Isveren / Birim Sorumlusu)"), 30, finalY + 25);
+        doc.text(turkishToEnglish("Teslim Alan (Personel Imza)"), 130, finalY + 25);
+
+        doc.save(`Bordro_${p.personName.replace(/\s+/g, '_')}_${p.period}.pdf`);
     }
 </script>
 </body>
