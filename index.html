@@ -2109,12 +2109,18 @@
         const todayStr = new Date().toISOString().split('T')[0];
 
         const filtered = leaveList.filter(l => {
-            // Birim filtresi kontrolü (Büyük/küçük harf duyarsız ve boşluksuz karşılaştırma için esnek yapı)
+            // Birim filtresi kontrolü (Eski kayıtlarda unit alanı boşsa veya uyuşmuyorsa esnek yaklaşım)
             let matchUnit = true;
             if (fUnit !== 'ALL') {
                 let leaveUnitClean = (l.unit || '').trim().toLowerCase();
                 let filterUnitClean = fUnit.trim().toLowerCase();
-                matchUnit = (leaveUnitClean === filterUnitClean);
+                
+                // Eğer eski kayıtta birim bilgisi yoksa (boşsa) filtrelenip kaybolmasın, ya da tam eşleşsin
+                if (!leaveUnitClean) {
+                    matchUnit = true; // Eski/eksik kayıtların kaybolmasını önler
+                } else {
+                    matchUnit = (leaveUnitClean === filterUnitClean);
+                }
             }
 
             let matchType = true;
