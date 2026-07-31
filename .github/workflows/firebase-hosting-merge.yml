@@ -15,5 +15,6 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_TOKEN }}'
           channelId: live
           projectId: brmtakip
+          entryPoint: '.'
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
