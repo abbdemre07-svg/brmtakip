@@ -868,16 +868,17 @@
     });
 
     function getDynamicUsers() {
-        return {
-            'admin': { pass: 'admin123', role: 'ADMIN', unit: 'Sistem Admini' },
-            'parkbahceler': { pass: '123', role: 'UNIT_USER', unit: 'Park ve Bahçeler' },
-            'temizlik': { pass: '123', role: 'UNIT_USER', unit: 'Temizlik İşleri' },
-            'ilaclama': { pass: '123', role: 'UNIT_USER', unit: 'İlaçlama' },
-            'mezarlik': { pass: '123', role: 'UNIT_USER', unit: 'Mezarlık' },
-            'fenisleri': { pass: '123', role: 'UNIT_USER', unit: 'Fen İşleri' },
-            'tarimsalhizmetler': { pass: '123', role: 'UNIT_USER', unit: 'Tarımsal Hizmetler' },
-            'timsal': { pass: '123', role: 'UNIT_USER', unit: 'Tımsal' }
+        const users = {
+            'admin': { pass: 'admin123', role: 'ADMIN', unit: 'Sistem Admini' }
         };
+        unitList.forEach(u => {
+            let key = u.toLowerCase()
+                .replace(/İ/g, 'i').replace(/I/g, 'ı').replace(/ı/g, 'i')
+                .replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ş/g, 's')
+                .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/[^a-z0-9]/g, '');
+            users[key] = { pass: '123', role: 'UNIT_USER', unit: u };
+        });
+        return users;
     }
 
     async function loadDataFromCloud() {
@@ -1109,7 +1110,7 @@
         const monthIndex = parseInt(document.getElementById('workMonthSelect').value);
         const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
 
-        let viewingUnit = currentUser.role === 'ADMIN' ? document.getElementById('activeViewingUnit').value : currentUser.unit;
+        let viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'Sistem');
         let titlePrefix = viewingUnit === 'ALL' ? 'Tüm Birimler' : viewingUnit;
         document.getElementById('matrixBoardTitle').innerText = `📅 ${titlePrefix} - ${monthNames[monthIndex]} ${year} (${weekNum}. Hafta)`;
 
@@ -1415,7 +1416,7 @@
         const year = parseInt(document.getElementById('workYearSelect').value);
         const month = parseInt(document.getElementById('workMonthSelect').value);
         const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
-        const viewingUnit = currentUser.role === 'ADMIN' ? document.getElementById('activeViewingUnit').value : currentUser.unit;
+        const viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'ALL');
 
         const filteredWorks = workProgramList.filter(w => {
             let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
@@ -1523,7 +1524,7 @@
         sel.innerHTML = '';
         
         let targetPersonnel = personnelList;
-        if (currentUser.role !== 'ADMIN') {
+        if (currentUser && currentUser.role !== 'ADMIN') {
             targetPersonnel = personnelList.filter(p => p.unit === currentUser.unit);
         }
 
@@ -1935,16 +1936,12 @@
 
         document.getElementById('persEditId').value = p.id;
         document.getElementById('newPersName').value = p.name || '';
-        document.getElementById('newPersUnit').value = p.unit || unitList[0];
-        document.getElementById('newPersStatus').value = p.status || 'Memur';
-        if (p.title && !titleList.includes(p.title)) {
-            titleList.push(p.title);
-            updateTitleDropdowns();
-        }
-        document.getElementById('newPersTitle').value = p.title || titleList[0];
+        document.getElementById('newPersUnit').value = p.unit || '';
+        document.getElementById('newPersStatus').value = p.status || 'Şirket İşçisi';
+        document.getElementById('newPersTitle').value = p.title || '';
         document.getElementById('newPersPhone').value = p.phone || '';
 
-        document.getElementById('personnelFormTitle').innerText = 'Personel Bilgilerini Düzenle';
+        document.getElementById('personnelFormTitle').innerText = '👤 Personel Bilgilerini Düzenle';
         document.getElementById('btnPersSubmit').innerText = 'Değişiklikleri Kaydet';
         document.getElementById('btnCancelPersEdit').classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1953,10 +1950,23 @@
     function resetPersonnelForm() {
         document.getElementById('persEditId').value = '';
         document.getElementById('addPersonnelForm').reset();
-        updateTitleDropdowns();
         document.getElementById('personnelFormTitle').innerText = '👤 Personel Yönetimi (Ekle / Düzenle)';
         document.getElementById('btnPersSubmit').innerText = 'Personel Ekle';
         document.getElementById('btnCancelPersEdit').classList.add('hidden');
+    }
+
+    async function deletePersonnel(id) {
+        if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
+        try {
+            await db.collection("personnel").doc(id).delete();
+            personnelList = personnelList.filter(p => p.id !== id);
+            renderPersonnelTable();
+            populatePersonDropdown();
+            populateVehicleDriverDropdown();
+            updatePersonnelStats();
+        } catch (err) {
+            alert("Silme başarısız!");
+        }
     }
 
     function renderPersonnelTable() {
@@ -1974,29 +1984,19 @@
             return matchUnit && matchStatus && matchTitle;
         });
 
-        tbody.innerHTML = filtered.map((p, idx) => `
+        tbody.innerHTML = filtered.map(p => `
             <tr>
-                <td><b>${p.name || '-'}</b></td>
-                <td>${p.unit || '-'}</td>
-                <td><span class="user-badge" style="background:${p.status==='Memur'?'var(--success)':(p.status==='Sözleşmeli'?'var(--accent)':'var(--warning)')};">${p.status || '-'}</span></td>
-                <td>${p.title || '-'}</td>
+                <td><b>${p.name}</b></td>
+                <td>${p.unit}</td>
+                <td>${p.status}</td>
+                <td>${p.title}</td>
                 <td>${p.phone || '-'}</td>
                 <td style="display:flex; gap:4px;">
                     <button class="btn-edit" onclick="editPersonnel('${p.id}')">Düzenle</button>
                     <button class="btn-delete" onclick="deletePersonnel('${p.id}')">Sil</button>
                 </td>
             </tr>
-        `).join('') || `<tr><td colspan="6" style="text-align:center;">Personel bulunmuyor.</td></tr>`;
-    }
-
-    async function deletePersonnel(id) {
-        if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
-        await db.collection("personnel").doc(id).delete();
-        personnelList = personnelList.filter(p => p.id !== id);
-        renderPersonnelTable();
-        populatePersonDropdown();
-        populateVehicleDriverDropdown();
-        updatePersonnelStats();
+        `).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı personel bulunmuyor.</td></tr>`;
     }
 
     function updatePersonnelStats() {
@@ -2005,13 +2005,13 @@
         const isci = personnelList.filter(p => p.status === 'Şirket İşçisi').length;
         const sozlesmeli = personnelList.filter(p => p.status === 'Sözleşmeli').length;
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
         let izindeCount = 0;
         let raporluCount = 0;
 
         leaveList.forEach(l => {
-            if (l.startDate <= todayStr && l.endDate >= todayStr) {
-                if (l.type && l.type.includes('Rapor')) {
+            if (l.startDate <= today && l.endDate >= today) {
+                if (l.type.includes('Rapor') || l.type.includes('Sağlık')) {
                     raporluCount++;
                 } else {
                     izindeCount++;
@@ -2027,22 +2027,21 @@
         document.getElementById('statRaporlu').innerText = raporluCount;
     }
 
-    /* İZİN TAKİBİ FONKSİYONLARI */
     document.getElementById('leaveForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const editId = document.getElementById('leaveEditId').value;
         const personId = document.getElementById('leavePersonSelect').value;
-        const personObj = personnelList.find(p => p.id === personId);
+        const person = personnelList.find(p => p.id === personId);
 
-        if (!personObj) {
+        if (!person) {
             alert("Lütfen bir personel seçin!");
             return;
         }
 
         const leaveObj = {
             personId: personId,
-            personName: personObj.name,
-            unit: personObj.unit,
+            personName: person.name,
+            unit: person.unit,
             type: document.getElementById('leaveType').value,
             startDate: document.getElementById('startDate').value,
             endDate: document.getElementById('endDate').value,
@@ -2059,7 +2058,7 @@
             } else {
                 let docRef = await db.collection("leaves").add(leaveObj);
                 leaveList.push({ id: docRef.id, ...leaveObj });
-                alert("İzin kaydı oluşturuldu.");
+                alert("İzin kaydedildi.");
             }
             resetLeaveForm();
             renderLeaveTable();
@@ -2107,7 +2106,7 @@
             renderLeaveTable();
             updatePersonnelStats();
         } catch (err) {
-            alert("Silme işlemi başarısız!");
+            alert("Silme başarısız!");
         }
     }
 
@@ -2115,45 +2114,42 @@
         const tbody = document.getElementById('leaveTableBody');
         if (!tbody) return;
 
-        const fUnit = document.getElementById('filterLeaveUnit') ? document.getElementById('filterLeaveUnit').value : 'ALL';
-        const fType = document.getElementById('filterLeaveType') ? document.getElementById('filterLeaveType').value : 'ALL';
-        const todayStr = new Date().toISOString().split('T')[0];
+        const fUnit = document.getElementById('filterLeaveUnit').value;
+        const fType = document.getElementById('filterLeaveType').value;
+        const today = new Date().toISOString().split('T')[0];
 
         const filtered = leaveList.filter(l => {
-            let userUnit = currentUser && currentUser.role !== 'ADMIN' ? currentUser.unit : null;
-            if (userUnit && l.unit && l.unit.toLowerCase() !== userUnit.toLowerCase()) {
-                return false;
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (l.unit !== currentUser.unit) return false;
             }
 
             let matchUnit = (fUnit === 'ALL' || l.unit === fUnit);
             let matchType = true;
             if (fType === 'TODAY') {
-                matchType = (l.startDate <= todayStr && l.endDate >= todayStr);
+                matchType = (l.startDate <= today && l.endDate >= today);
             } else if (fType !== 'ALL') {
                 matchType = (l.type === fType);
             }
-
             return matchUnit && matchType;
         });
 
-        const badgeEl = document.getElementById('leaveCountBadge');
-        if (badgeEl) badgeEl.innerText = filtered.length;
+        document.getElementById('leaveCountBadge').innerText = filtered.length;
 
         tbody.innerHTML = filtered.map(l => {
             let imgHtml = '-';
             if (l.images && l.images.length > 0) {
                 const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
                 imgHtml = `<div class="img-preview-container">` + l.images.map(img => {
-                    let thumbSrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-                    return `<img src="${thumbSrc}" onclick="openImageModal('${img}', ${listStr})">`;
+                    let displaySrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
+                    return `<img src="${displaySrc}" onclick="openImageModal('${img}', ${listStr})">`;
                 }).join('') + `</div>`;
             }
 
             return `
                 <tr>
-                    <td><b>${l.personName || '-'}</b></td>
+                    <td><b>${l.personName || 'Personel'}</b></td>
                     <td>${l.unit || '-'}</td>
-                    <td><span class="user-badge" style="background:var(--warning);">${l.type || '-'}</span></td>
+                    <td><span class="user-badge" style="background:${l.type.includes('Rapor')?'var(--danger)':'var(--warning)'};">${l.type}</span></td>
                     <td>${l.startDate} / ${l.endDate}</td>
                     <td>${imgHtml}</td>
                     <td style="display:flex; gap:4px;">
@@ -2162,37 +2158,40 @@
                     </td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin/rapor bulunmuyor.</td></tr>`;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;">İzin kaydı bulunmuyor.</td></tr>`;
     }
 
-    /* RAPOR SEKMESİ FONKSİYONLARI */
     function renderReportPersonnelTable() {
         const tbody = document.getElementById('reportPersonnelBody');
         if (!tbody) return;
 
-        const unitFilter = document.getElementById('reportUnitFilter').value;
-        const statusFilter = document.getElementById('reportPersStatusFilter').value;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const fUnit = document.getElementById('reportUnitFilter').value;
+        const fStatus = document.getElementById('reportPersStatusFilter').value;
+        const today = new Date().toISOString().split('T')[0];
 
         const filtered = personnelList.filter(p => {
-            let matchUnit = (unitFilter === 'ALL' || p.unit === unitFilter);
-            let leave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
+            
+            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
+            let isLeave = activeLeave && !activeLeave.type.includes('Rapor') && !activeLeave.type.includes('Sağlık');
+            let isReport = activeLeave && (activeLeave.type.includes('Rapor') || activeLeave.type.includes('Sağlık'));
 
             let matchStatus = true;
-            if (statusFilter === 'IZINLI') {
-                matchStatus = (leave && !leave.type.includes('Rapor'));
-            } else if (statusFilter === 'RAPORLU') {
-                matchStatus = (leave && leave.type.includes('Rapor'));
-            } else if (statusFilter === 'AKTIF') {
-                matchStatus = !leave;
-            }
+            if (fStatus === 'IZINLI') matchStatus = isLeave;
+            else if (fStatus === 'RAPORLU') matchStatus = isReport;
+            else if (fStatus === 'AKTIF') matchStatus = !activeLeave;
 
             return matchUnit && matchStatus;
         });
 
         tbody.innerHTML = filtered.map(p => {
-            let leave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            let stateBadge = leave ? `<span class="user-badge" style="background:var(--warning);">${leave.type} (${leave.endDate}'e kadar)</span>` : `<span class="user-badge unit">Görevde / Aktif</span>`;
+            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
+            let statusBadge = `<span class="user-badge unit">Görevde (Aktif)</span>`;
+
+            if (activeLeave) {
+                let badgeBg = (activeLeave.type.includes('Rapor') || activeLeave.type.includes('Sağlık')) ? 'var(--danger)' : 'var(--warning)';
+                statusBadge = `<span class="user-badge" style="background:${badgeBg};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+            }
 
             return `
                 <tr>
@@ -2200,10 +2199,10 @@
                     <td>${p.unit}</td>
                     <td>${p.status}</td>
                     <td>${p.title}</td>
-                    <td>${stateBadge}</td>
+                    <td>${statusBadge}</td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Süzgeçlere uygun personel bulunamadı.</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıtlı personel bulunamadı.</td></tr>`;
     }
 
     function renderReportTable() {
@@ -2211,35 +2210,34 @@
         const tbody = document.getElementById('reportTableBody');
         if (!tbody) return;
 
-        const unitFilter = document.getElementById('reportUnitFilter').value;
+        const fUnit = document.getElementById('reportUnitFilter').value;
+        const filtered = workProgramList.filter(w => fUnit === 'ALL' || w.unit === fUnit);
 
-        const filteredWorks = workProgramList.filter(w => {
-            return unitFilter === 'ALL' || w.unit === unitFilter;
-        });
-
-        tbody.innerHTML = filteredWorks.map(w => {
-            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
-            let dayName = dayNames[w.dayIndex] || `Gün ${w.dayIndex + 1}`;
-            return `
-                <tr>
-                    <td><b>${w.unit}</b></td>
-                    <td>${dayName}</td>
-                    <td>${w.timeStr || '-'}</td>
-                    <td>${w.title}</td>
-                    <td>${statusLabel}</td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen birime ait görev bulunamadı.</td></tr>`;
+        tbody.innerHTML = filtered.map(w => `
+            <tr>
+                <td><b>${w.unit}</b></td>
+                <td>${dayNames[w.dayIndex] || '-'}</td>
+                <td>${w.timeStr || '-'}</td>
+                <td>${w.title}</td>
+                <td><span class="user-badge" style="background:${w.status==='DONE'?'var(--success)':(w.status==='PROGRESS'?'var(--accent)':'var(--warning)')};">${w.status==='DONE'?'Tamamlandı':(w.status==='PROGRESS'?'Devam Ediyor':'Planlandı')}</span></td>
+            </tr>
+        `).join('') || `<tr><td colspan="5" style="text-align:center;">Görev kaydı bulunmuyor.</td></tr>`;
     }
 
-    // Oturum Kontrolü ve Başlatma
-    const savedUser = localStorage.getItem('activeSession');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('mainApp').classList.remove('hidden');
-        setupSessionUI();
-    }
+    // OTURUM KONTROLÜ İLE BAŞLATMA
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedSession = localStorage.getItem('activeSession');
+        if (savedSession) {
+            try {
+                currentUser = JSON.parse(savedSession);
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                setupSessionUI();
+            } catch (e) {
+                console.error("Oturum yükleme hatası", e);
+            }
+        }
+    });
 </script>
 </body>
 </html>
