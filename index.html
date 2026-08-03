@@ -219,13 +219,45 @@
     <!-- HAFTALIK ÇALIŞMA PROGRAMI -->
     <div id="weeklyTab" class="tab-content active">
         
-        <!-- ADMIN İÇİN BİRİM SEÇİM ÇUBUĞU -->
-        <div class="card hidden" id="adminUnitSelectorCard" style="background: #f8fafc; padding: 10px 15px;">
-            <div class="form-group">
-                <label style="color: var(--accent);">Görüntülenen / Yönetilen Birim:</label>
-                <select id="activeViewingUnit" onchange="onAdminUnitChange()">
-                    <option value="ALL">🌟 Tümü (Tüm Birimler)</option>
-                </select>
+        <!-- GEÇMİŞ HAFTALARIN RAPORU VEYA GÖRÜNTÜLEME SEÇİMİ -->
+        <div class="card" style="background: #f8fafc; padding: 12px 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 0;">📅 Program Haftası Seçimi ve Geçmiş Raporlar</h3>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <button type="button" class="btn-pdf" style="padding: 6px 12px; font-size: 0.8rem;" onclick="exportWeeklyProgramToPDF()">📄 Haftalık PDF İndir</button>
+                    <button type="button" class="btn-excel" style="padding: 6px 12px; font-size: 0.8rem;" onclick="exportWeeklyProgramToExcel()">📊 Haftalık Excel İndir</button>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group" id="adminUnitSelectorCardWrap" class="hidden">
+                    <label style="color: var(--accent);">Görüntülenen / Yönetilen Birim:</label>
+                    <select id="activeViewingUnit" onchange="onAdminUnitChange()">
+                        <option value="ALL">🌟 Tümü (Tüm Birimler)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Yıl:</label>
+                    <select id="workYearSelect" onchange="onWeekSelectionChange()">
+                        <option value="2026" selected>2026</option>
+                        <option value="2027">2027</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Ay:</label>
+                    <select id="workMonthSelect" onchange="onWeekSelectionChange()">
+                        <option value="0">Ocak</option><option value="1">Şubat</option><option value="2">Mart</option>
+                        <option value="3">Nisan</option><option value="4">Mayıs</option><option value="5">Haziran</option>
+                        <option value="6" selected>Temmuz</option><option value="7">Ağustos</option><option value="8">Eylül</option>
+                        <option value="9">Ekim</option><option value="10">Kasım</option><option value="11">Aralık</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Geçmiş / Mevcut Hafta:</label>
+                    <select id="workWeekNumSelect" onchange="onWeekSelectionChange()">
+                        <!-- Dinamik doldurulacak -->
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -237,38 +269,12 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Program Haftası:</label>
-                        <div style="display: flex; gap: 4px;">
-                            <select id="workYearSelect" onchange="onWeekSelectionChange()" style="flex: 1;">
-                                <option value="2026" selected>2026</option>
-                                <option value="2027">2027</option>
-                            </select>
-                            <select id="workMonthSelect" onchange="onWeekSelectionChange()" style="flex: 2;">
-                                <option value="0">Ocak</option><option value="1">Şubat</option><option value="2">Mart</option>
-                                <option value="3">Nisan</option><option value="4">Mayıs</option><option value="5">Haziran</option>
-                                <option value="6" selected>Temmuz</option><option value="7">Ağustos</option><option value="8">Eylül</option>
-                                <option value="9">Ekim</option><option value="10">Kasım</option><option value="11">Aralık</option>
-                            </select>
-                            <select id="workWeekNumSelect" onchange="onWeekSelectionChange()" style="flex: 1.5;">
-                                <option value="1">1. Hafta</option><option value="2">2. Hafta</option><option value="3">3. Hafta</option>
-                                <option value="4">4. Hafta</option><option value="5" selected>5. Hafta</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
                         <label>Gün Seçin:</label>
                         <select id="workDaySelect" required></select>
                     </div>
                     <div class="form-group">
                         <label>Saat / Zaman:</label>
                         <input type="text" id="workTimeStr" placeholder="Örn: 09:00 - 12:00">
-                    </div>
-                </div>
-              
-                <div class="form-row">
-                    <div class="form-group full-width">
-                        <label>Görev / Program Başlığı:</label>
-                        <input type="text" id="workTitle" placeholder="Yapılacak işin detayını yazın..." required>
                     </div>
                     <div class="form-group">
                         <label>Durum:</label>
@@ -278,7 +284,14 @@
                             <option value="DONE">✔ Tamamlandı</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                </div>
+              
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label>Görev / Program Başlığı:</label>
+                        <input type="text" id="workTitle" placeholder="Yapılacak işin detayını yazın..." required>
+                    </div>
+                    <div class="form-group full-width">
                         <label>Fotoğraf / Kanıt (Maks 3 Adet):</label>
                         <input type="file" id="workImages" accept="image/*" multiple onchange="handleImageSelection(event)">
                         <div class="img-preview-container" id="imgPreviewArea"></div>
@@ -611,17 +624,39 @@
     <!-- RAPOR SEKMESİ -->
     <div id="reportTab" class="tab-content">
         <div class="card">
-            <h2>📊 Gelişmiş Süzme ve Raporlama Ekranı</h2>
-            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Bu ekrandan birim, personel, izinli, raporlu ve görev durumlarına göre detaylı süzme yapabilirsiniz.</p>
+            <h2>📊 Geçmiş Haftalar ve Gelişmiş Raporlama Ekranı</h2>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">Bu ekrandan geçmiş/mevcut haftalara ait programları, birim, personel ve görev durumlarına göre detaylı süzebilir ve raporlayabilirsiniz.</p>
             
             <div class="form-row" style="margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+                <div class="form-group">
+                    <label>Rapor Yılı</label>
+                    <select id="reportYearSelect" onchange="renderReportTable()">
+                        <option value="2026" selected>2026</option>
+                        <option value="2027">2027</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Rapor Ayı</label>
+                    <select id="reportMonthSelect" onchange="onReportMonthChange()">
+                        <option value="0">Ocak</option><option value="1">Şubat</option><option value="2">Mart</option>
+                        <option value="3">Nisan</option><option value="4">Mayıs</option><option value="5">Haziran</option>
+                        <option value="6" selected>Temmuz</option><option value="7">Ağustos</option><option value="8">Eylül</option>
+                        <option value="9">Ekim</option><option value="10">Kasım</option><option value="11">Aralık</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Rapor Haftası</label>
+                    <select id="reportWeekSelect" onchange="renderReportTable()">
+                        <!-- Dinamik doldurulacak -->
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>Birim Filtresi</label>
                     <select id="reportUnitFilter" onchange="renderReportTable()"></select>
                 </div>
                 <div class="form-group">
                     <label>Personel Durum Süzgeci</label>
-                    <select id="reportPersStatusFilter" onchange="renderReportTable()">
+                    <select id="reportPersStatusFilter" onchange="renderReportPersonnelTable()">
                         <option value="ALL">🌟 Tüm Personel</option>
                         <option value="IZINLI">Yalnızca İzinli Olanlar</option>
                         <option value="RAPORLU">Yalnızca Raporlu Olanlar</option>
@@ -646,7 +681,7 @@
                 </table>
             </div>
 
-            <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 8px;">📋 Detaylı Görev Listesi</h3>
+            <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 8px;">📋 Seçilen Hafta Detaylı Görev Listesi</h3>
             <div class="table-responsive">
                 <table>
                     <thead><tr><th>Birim</th><th>Gün</th><th>Saat</th><th>Görev</th><th>Durum</th></tr></thead>
@@ -766,7 +801,7 @@
 </div>
 
 <script>
-    // Firebase Bağlantı Bilgileri
+    // Firebase Bağlantı Bilgileri[cite: 3]
     const firebaseConfig = {
         apiKey: "AIzaSyAgkhSSmd7Fb1ifMlvP0-innMoCWPRVQfA",
         authDomain: "brt07-aa890.firebaseapp.com",
@@ -909,6 +944,11 @@
             updateTitleDropdowns();
             updateVehicleFilterDropdowns();
             populateVehicleDriverDropdown();
+            
+            // Haftalık ve Rapor hafta seçeneklerini ayarla
+            populateWeekDropdowns('workYearSelect', 'workMonthSelect', 'workWeekNumSelect');
+            populateWeekDropdowns('reportYearSelect', 'reportMonthSelect', 'reportWeekSelect');
+            
             renderUI();
         } catch (error) {
             console.error("Veri çekme hatası:", error);
@@ -917,6 +957,84 @@
 
     const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     const dayNames = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+
+    // Dinamik Takvim Haftası Hesaplayıcı (Ayın günlerine göre kaç hafta varsa ve tarihlerini üretir)
+    function populateWeekDropdowns(yearSelectId, monthSelectId, weekSelectId) {
+        const yEl = document.getElementById(yearSelectId);
+        const mEl = document.getElementById(monthSelectId);
+        const wEl = document.getElementById(weekSelectId);
+        if (!yEl || !mEl || !wEl) return;
+
+        const year = parseInt(yEl.value);
+        const month = parseInt(mEl.value);
+        const currentSelectedWeek = wEl.value || "1";
+
+        wEl.innerHTML = '';
+
+        let firstDayOfMonth = new Date(year, month, 1);
+        let lastDayOfMonth = new Date(year, month + 1, 0);
+
+        let currentWeekNum = 1;
+        let dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; 
+        let startDate = new Date(year, month, 1 - dayOfWeek);
+
+        for (let i = 1; i <= 6; i++) {
+            let weekStart = new Date(startDate);
+            weekStart.setDate(startDate.getDate() + (i - 1) * 7);
+            
+            let weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+
+            if (weekStart <= lastDayOfMonth && weekEnd >= firstDayOfMonth) {
+                let startStr = weekStart.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+                let endStr = weekEnd.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+                wEl.innerHTML += `<option value="${currentWeekNum}">${currentWeekNum}. Hafta (${startStr} - ${endStr})</option>`;
+                currentWeekNum++;
+            }
+        }
+
+        if (wEl.querySelector(`option[value="${currentSelectedWeek}"]`)) {
+            wEl.value = currentSelectedWeek;
+        }
+    }
+
+    function onWeekSelectionChange() {
+        populateWeekDropdowns('workYearSelect', 'workMonthSelect', 'workWeekNumSelect');
+        const year = parseInt(document.getElementById('workYearSelect').value);
+        const monthIndex = parseInt(document.getElementById('workMonthSelect').value);
+        const weekNum = parseInt(document.getElementById('workWeekNumSelect').value || 1);
+
+        let viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'Sistem');
+        let titlePrefix = viewingUnit === 'ALL' ? 'Tüm Birimler' : viewingUnit;
+        const matrixTitle = document.getElementById('matrixBoardTitle');
+        if(matrixTitle) matrixTitle.innerText = `📅 ${titlePrefix} - ${monthNames[monthIndex]} ${year} (${weekNum}. Hafta)`;
+
+        const firstDayOfMonth = new Date(year, monthIndex, 1);
+        let dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;                 
+        let firstMonday = new Date(year, monthIndex, 1 - dayOfWeek);
+        let startDate = new Date(firstMonday);
+        startDate.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
+
+        weekDaysData = [];
+        const daySelect = document.getElementById('workDaySelect');
+        if(daySelect) daySelect.innerHTML = '';
+
+        for (let i = 0; i < 7; i++) {
+            const dayDate = new Date(startDate);
+            dayDate.setDate(startDate.getDate() + i);
+            const dayFormatted = dayDate.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+            
+            const dayObj = { index: i, name: dayNames[i], dateStr: dayFormatted, fullLabel: `${dayNames[i]} (${dayFormatted})` };
+            weekDaysData.push(dayObj);
+            if(daySelect) daySelect.innerHTML += `<option value="${i}">${dayObj.fullLabel}</option>`;
+        }
+        renderMatrixTable();
+    }
+
+    function onReportMonthChange() {
+        populateWeekDropdowns('reportYearSelect', 'reportMonthSelect', 'reportWeekSelect');
+        renderReportTable();
+    }
 
     function updateUnitDropdowns() {
         ['newPersUnit', 'reportUnitFilter', 'filterPersUnit', 'filterVehBirim', 'vehSubeMud', 'filterLeaveUnit'].forEach(id => {
@@ -1105,46 +1223,7 @@
         }
     }
 
-    function onWeekSelectionChange() {
-        const year = parseInt(document.getElementById('workYearSelect').value);
-        const monthIndex = parseInt(document.getElementById('workMonthSelect').value);
-        const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
-
-        let viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'Sistem');
-        let titlePrefix = viewingUnit === 'ALL' ? 'Tüm Birimler' : viewingUnit;
-        document.getElementById('matrixBoardTitle').innerText = `📅 ${titlePrefix} - ${monthNames[monthIndex]} ${year} (${weekNum}. Hafta)`;
-
-        const firstDayOfMonth = new Date(year, monthIndex, 1);
-        let dayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;                 
-        let firstMonday = new Date(year, monthIndex, 1 - dayOfWeek);
-        let startDate = new Date(firstMonday);
-        startDate.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
-
-        weekDaysData = [];
-        const daySelect = document.getElementById('workDaySelect');
-        if(daySelect) daySelect.innerHTML = '';
-
-        for (let i = 0; i < 7; i++) {
-            const dayDate = new Date(startDate);
-            dayDate.setDate(startDate.getDate() + i);
-            const dayFormatted = dayDate.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
-            
-            const dayObj = { index: i, name: dayNames[i], dateStr: dayFormatted, fullLabel: `${dayNames[i]} (${dayFormatted})` };
-            weekDaysData.push(dayObj);
-            if(daySelect) daySelect.innerHTML += `<option value="${i}">${dayObj.fullLabel}</option>`;
-        }
-        renderMatrixTable();
-    }
-
     function onAdminUnitChange() {
-        const viewingUnit = document.getElementById('activeViewingUnit').value;
-        const formCard = document.getElementById('workFormCard');
-        
-        if (viewingUnit === 'ALL') {
-            formCard.classList.add('hidden');
-        } else {
-            formCard.classList.remove('hidden');
-        }
         onWeekSelectionChange();
     }
 
@@ -1188,9 +1267,9 @@
             document.getElementById('tabReportBtn').classList.remove('hidden');
             document.getElementById('tabAddUnitBtn').classList.remove('hidden');
             document.getElementById('tabAddTitleBtn').classList.remove('hidden');
-            document.getElementById('adminUnitSelectorCard').classList.remove('hidden');
+            document.getElementById('adminUnitSelectorCardWrap').classList.remove('hidden');
             headerTitle.innerText = "Merkez Yönetim - Birim Programları";
-            document.getElementById('workFormCard').classList.add('hidden');
+            document.getElementById('workFormCard').classList.remove('hidden');
         } else {
             statusBadge.innerText = `🏢 ${currentUser.unit}`;
             statusBadge.className = 'user-badge unit';
@@ -1198,7 +1277,7 @@
             document.getElementById('tabReportBtn').classList.add('hidden');
             document.getElementById('tabAddUnitBtn').classList.add('hidden');
             document.getElementById('tabAddTitleBtn').classList.add('hidden');
-            document.getElementById('adminUnitSelectorCard').classList.add('hidden');
+            document.getElementById('adminUnitSelectorCardWrap').classList.add('hidden');
             headerTitle.innerText = `${currentUser.unit} - Haftalık Çalışma Programı`;
             document.getElementById('workFormCard').classList.remove('hidden');
             
@@ -1208,6 +1287,8 @@
                 populateVehicleDriverDropdown();
             }
         }
+        populateWeekDropdowns('workYearSelect', 'workMonthSelect', 'workWeekNumSelect');
+        populateWeekDropdowns('reportYearSelect', 'reportMonthSelect', 'reportWeekSelect');
         onWeekSelectionChange();
         loadDataFromCloud();
     }
@@ -1218,6 +1299,7 @@
         document.getElementById(tabId).classList.add('active');
         if (evt) evt.target.classList.add('active');
         if (tabId === 'reportTab') {
+            populateWeekDropdowns('reportYearSelect', 'reportMonthSelect', 'reportWeekSelect');
             renderReportPersonnelTable();
             renderReportTable();
         }
@@ -1361,7 +1443,7 @@
         let targetUnit = currentUser.role === 'ADMIN' ? document.getElementById('activeViewingUnit').value : currentUser.unit;
 
         if (targetUnit === 'ALL') {
-            alert("Yeni görev eklemek için lütfen üst menüden tek bir birim seçin!");
+            alert("Yeni görev eklemek için lütfen üst filtreleme alanından tek bir birim seçin!");
             return;
         }
 
@@ -1486,12 +1568,12 @@
         
         if (currentUser.role === 'ADMIN') {
             document.getElementById('activeViewingUnit').value = w.unit;
-            document.getElementById('workFormCard').classList.remove('hidden');
         }
 
         document.getElementById('workEditId').value = w.id;
         document.getElementById('workYearSelect').value = w.year;
         document.getElementById('workMonthSelect').value = w.month;
+        populateWeekDropdowns('workYearSelect', 'workMonthSelect', 'workWeekNumSelect');
         document.getElementById('workWeekNumSelect').value = w.weekNum;
         onWeekSelectionChange();
         
@@ -1516,6 +1598,110 @@
         } catch (err) {
             alert("Silme başarısız!");
         }
+    }
+
+    function exportWeeklyProgramToPDF() {
+        const year = parseInt(document.getElementById('workYearSelect').value);
+        const month = parseInt(document.getElementById('workMonthSelect').value);
+        const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
+        const viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'ALL');
+
+        const filteredWorks = workProgramList.filter(w => {
+            let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
+            let matchUnit = (viewingUnit === 'ALL' || w.unit === viewingUnit);
+            return matchWeek && matchUnit;
+        });
+
+        if (filteredWorks.length === 0) {
+            alert("Seçilen hafta için raporlanacak görev kaydı bulunmuyor!");
+            return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('landscape', 'mm', 'a4');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        let headerTxt = `HAFTALIK CALISMA PROGRAMI RAPORU - ${monthNames[month]} ${year} (${weekNum}. Hafta)`;
+        doc.text(turkishToEnglish(headerTxt), 14, 12);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(turkishToEnglish("Olusturma Tarihi: " + new Date().toLocaleDateString('tr-TR') + " | Birim: " + (viewingUnit === 'ALL' ? 'Tumlu Birimler' : viewingUnit)), 14, 17);
+
+        const headers = [
+            ["Birim", "Gun", "Saat", "Gorev / Aciklama", "Durumu"]
+        ];
+
+        const rows = [];
+        filteredWorks.sort((a,b) => a.unit.localeCompare(b.unit) || a.dayIndex - b.dayIndex).forEach(w => {
+            let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
+            let dayStr = dayObj ? dayObj.fullLabel : `${w.dayIndex}. Gun`;
+            let statusStr = w.status === 'PLAN' ? 'Planlandi' : (w.status === 'PROGRESS' ? 'Devam Ediyor' : 'Tamamlandi');
+
+            rows.push([
+                turkishToEnglish(w.unit),
+                turkishToEnglish(dayStr),
+                turkishToEnglish(w.timeStr || '-'),
+                turkishToEnglish(w.title),
+                turkishToEnglish(statusStr)
+            ]);
+        });
+
+        doc.autoTable({
+            head: headers,
+            body: rows,
+            startY: 21,
+            theme: 'grid',
+            styles: { fontSize: 8.5, cellPadding: 3, font: 'helvetica', overflow: 'linebreak' },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+            alternateRowStyles: { fillColor: [245, 247, 250] },
+            columnStyles: {
+                0: { cellWidth: 45 },
+                1: { cellWidth: 40 },
+                2: { cellWidth: 30 },
+                3: { cellWidth: 125 },
+                4: { cellWidth: 37 }
+            }
+        });
+
+        doc.save(`Haftalik_Calisma_Raporu_${monthNames[month]}_${year}_Hafta_${weekNum}.pdf`);
+    }
+
+    function exportWeeklyProgramToExcel() {
+        const year = parseInt(document.getElementById('workYearSelect').value);
+        const month = parseInt(document.getElementById('workMonthSelect').value);
+        const weekNum = parseInt(document.getElementById('workWeekNumSelect').value);
+        const viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'ALL');
+
+        const filteredWorks = workProgramList.filter(w => {
+            let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
+            let matchUnit = (viewingUnit === 'ALL' || w.unit === viewingUnit);
+            return matchWeek && matchUnit;
+        });
+
+        if (filteredWorks.length === 0) {
+            alert("Seçilen hafta için dışa aktarılacak görev kaydı bulunmuyor!");
+            return;
+        }
+
+        let csv = '\uFEFFBirim\tGün\tSaat\tGörev / Açıklama\tDurumu\n';
+        filteredWorks.sort((a,b) => a.unit.localeCompare(b.unit) || a.dayIndex - b.dayIndex).forEach(w => {
+            let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
+            let dayStr = dayObj ? dayObj.fullLabel : `${w.dayIndex}. Gün`;
+            let statusStr = w.status === 'PLAN' ? 'Planlandı' : (w.status === 'PROGRESS' ? 'Devam Ediyor' : 'Tamamlandı');
+
+            csv += `"${w.unit}"\t"${dayStr}"\t"${w.timeStr || ''}"\t"${w.title.replace(/"/g, '""')}"\t"${statusStr}"\n`;
+        });
+
+        let blob = new Blob([csv], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        let link = document.createElement("a");
+        let url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Haftalik_Calisma_Raporu_${monthNames[month]}_${year}_Hafta_${weekNum}.xls`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     function populatePersonDropdown() {
@@ -2027,21 +2213,69 @@
         document.getElementById('statRaporlu').innerText = raporluCount;
     }
 
+    async function renderLeaveTable() {
+        const tbody = document.getElementById('leaveTableBody');
+        if (!tbody) return;
+
+        const fUnit = document.getElementById('filterLeaveUnit').value;
+        const fType = document.getElementById('filterLeaveType').value;
+        const today = new Date().toISOString().split('T')[0];
+
+        const filtered = leaveList.filter(l => {
+            let p = personnelList.find(x => x.id === l.personId);
+            let pUnit = p ? p.unit : 'Bilinmiyor';
+            
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (pUnit.toLowerCase() !== currentUser.unit.toLowerCase()) return false;
+            }
+
+            let matchUnit = (fUnit === 'ALL' || pUnit === fUnit);
+            let matchType = true;
+
+            if (fType === 'TODAY') {
+                matchType = (l.startDate <= today && l.endDate >= today);
+            } else if (fType !== 'ALL') {
+                matchType = (l.type === fType);
+            }
+
+            return matchUnit && matchType;
+        });
+
+        document.getElementById('leaveCountBadge').innerText = filtered.length;
+
+        tbody.innerHTML = filtered.map(l => {
+            let p = personnelList.find(x => x.id === l.personId);
+            let pName = p ? p.name : 'Bilinmeyen Personel';
+            let pUnit = p ? p.unit : '-';
+
+            let imgBadge = '-';
+            if (l.images && l.images.length > 0) {
+                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
+                imgBadge = `<div class="img-preview-container">` + l.images.map(img => {
+                    let disp = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
+                    return `<img src="${disp}" onclick="openImageModal('${img}', ${listStr})">`;
+                }).join('') + `</div>`;
+            }
+
+            return `
+                <tr>
+                    <td><b>${pName}</b></td>
+                    <td>${pUnit}</td>
+                    <td><span class="user-badge" style="background:var(--warning);">${l.type}</span></td>
+                    <td>${l.startDate} ~ ${l.endDate}</td>
+                    <td>${imgBadge}</td>
+                    <td>
+                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
+    }
+
     document.getElementById('leaveForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const editId = document.getElementById('leaveEditId').value;
-        const personId = document.getElementById('leavePersonSelect').value;
-        const person = personnelList.find(p => p.id === personId);
-
-        if (!person) {
-            alert("Lütfen bir personel seçin!");
-            return;
-        }
-
         const leaveObj = {
-            personId: personId,
-            personName: person.name,
-            unit: person.unit,
+            personId: document.getElementById('leavePersonSelect').value,
             type: document.getElementById('leaveType').value,
             startDate: document.getElementById('startDate').value,
             endDate: document.getElementById('endDate').value,
@@ -2050,17 +2284,12 @@
         };
 
         try {
-            if (editId) {
-                await db.collection("leaves").doc(editId).update(leaveObj);
-                let idx = leaveList.findIndex(l => l.id === editId);
-                if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
-                alert("İzin kaydı güncellendi.");
-            } else {
-                let docRef = await db.collection("leaves").add(leaveObj);
-                leaveList.push({ id: docRef.id, ...leaveObj });
-                alert("İzin kaydedildi.");
-            }
-            resetLeaveForm();
+            let docRef = await db.collection("leaves").add(leaveObj);
+            leaveList.push({ id: docRef.id, ...leaveObj });
+            alert("İzin başarıyla kaydedildi.");
+            document.getElementById('leaveForm').reset();
+            selectedLeaveImageBase64List = [];
+            document.getElementById('leaveImgPreviewArea').innerHTML = '';
             renderLeaveTable();
             updatePersonnelStats();
         } catch (err) {
@@ -2068,35 +2297,6 @@
             alert("İzin kaydedilirken hata oluştu!");
         }
     });
-
-    function editLeave(id) {
-        const l = leaveList.find(item => item.id === id);
-        if (!l) return;
-
-        document.getElementById('leaveEditId').value = l.id;
-        document.getElementById('leavePersonSelect').value = l.personId;
-        document.getElementById('leaveType').value = l.type;
-        document.getElementById('startDate').value = l.startDate;
-        document.getElementById('endDate').value = l.endDate;
-
-        selectedLeaveImageBase64List = l.images ? [...l.images] : [];
-        renderLeaveImagePreviews();
-
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydını Düzenle';
-        document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function resetLeaveForm() {
-        document.getElementById('leaveEditId').value = '';
-        document.getElementById('leaveForm').reset();
-        selectedLeaveImageBase64List = [];
-        document.getElementById('leaveImgPreviewArea').innerHTML = '';
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydı Oluştur';
-        document.getElementById('btnLeaveSubmit').innerText = 'İzni Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
-    }
 
     async function deleteLeave(id) {
         if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
@@ -2110,87 +2310,34 @@
         }
     }
 
-    function renderLeaveTable() {
-        const tbody = document.getElementById('leaveTableBody');
-        if (!tbody) return;
-
-        const fUnit = document.getElementById('filterLeaveUnit').value;
-        const fType = document.getElementById('filterLeaveType').value;
-        const today = new Date().toISOString().split('T')[0];
-
-        const filtered = leaveList.filter(l => {
-            if (currentUser && currentUser.role !== 'ADMIN') {
-                if (l.unit !== currentUser.unit) return false;
-            }
-
-            let matchUnit = (fUnit === 'ALL' || l.unit === fUnit);
-            let matchType = true;
-            if (fType === 'TODAY') {
-                matchType = (l.startDate <= today && l.endDate >= today);
-            } else if (fType !== 'ALL') {
-                matchType = (l.type === fType);
-            }
-            return matchUnit && matchType;
-        });
-
-        document.getElementById('leaveCountBadge').innerText = filtered.length;
-
-        tbody.innerHTML = filtered.map(l => {
-            let imgHtml = '-';
-            if (l.images && l.images.length > 0) {
-                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
-                imgHtml = `<div class="img-preview-container">` + l.images.map(img => {
-                    let displaySrc = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-                    return `<img src="${displaySrc}" onclick="openImageModal('${img}', ${listStr})">`;
-                }).join('') + `</div>`;
-            }
-
-            return `
-                <tr>
-                    <td><b>${l.personName || 'Personel'}</b></td>
-                    <td>${l.unit || '-'}</td>
-                    <td><span class="user-badge" style="background:${l.type.includes('Rapor')?'var(--danger)':'var(--warning)'};">${l.type}</span></td>
-                    <td>${l.startDate} / ${l.endDate}</td>
-                    <td>${imgHtml}</td>
-                    <td style="display:flex; gap:4px;">
-                        <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
-                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
-                    </td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">İzin kaydı bulunmuyor.</td></tr>`;
-    }
-
     function renderReportPersonnelTable() {
         const tbody = document.getElementById('reportPersonnelBody');
         if (!tbody) return;
 
-        const fUnit = document.getElementById('reportUnitFilter').value;
         const fStatus = document.getElementById('reportPersStatusFilter').value;
+        const fUnit = document.getElementById('reportUnitFilter').value;
         const today = new Date().toISOString().split('T')[0];
 
         const filtered = personnelList.filter(p => {
-            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
-            
+            if (fUnit !== 'ALL' && p.unit !== fUnit) return false;
+
             let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
-            let isLeave = activeLeave && !activeLeave.type.includes('Rapor') && !activeLeave.type.includes('Sağlık');
-            let isReport = activeLeave && (activeLeave.type.includes('Rapor') || activeLeave.type.includes('Sağlık'));
-
-            let matchStatus = true;
-            if (fStatus === 'IZINLI') matchStatus = isLeave;
-            else if (fStatus === 'RAPORLU') matchStatus = isReport;
-            else if (fStatus === 'AKTIF') matchStatus = !activeLeave;
-
-            return matchUnit && matchStatus;
+            
+            if (fStatus === 'IZINLI') {
+                return activeLeave && !activeLeave.type.includes('Rapor');
+            } else if (fStatus === 'RAPORLU') {
+                return activeLeave && activeLeave.type.includes('Rapor');
+            } else if (fStatus === 'AKTIF') {
+                return !activeLeave;
+            }
+            return true;
         });
 
         tbody.innerHTML = filtered.map(p => {
             let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
-            let statusBadge = `<span class="user-badge unit">Görevde (Aktif)</span>`;
-
+            let durumHtml = '<span style="color:var(--success); font-weight:bold;">✔ Görevde / Aktif</span>';
             if (activeLeave) {
-                let badgeBg = (activeLeave.type.includes('Rapor') || activeLeave.type.includes('Sağlık')) ? 'var(--danger)' : 'var(--warning)';
-                statusBadge = `<span class="user-badge" style="background:${badgeBg};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+                durumHtml = `<span style="color:var(--danger); font-weight:bold;">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
             }
 
             return `
@@ -2199,33 +2346,47 @@
                     <td>${p.unit}</td>
                     <td>${p.status}</td>
                     <td>${p.title}</td>
-                    <td>${statusBadge}</td>
+                    <td>${durumHtml}</td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Kayıtlı personel bulunamadı.</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Filtreye uygun personel bulunmuyor.</td></tr>`;
     }
 
     function renderReportTable() {
-        renderReportPersonnelTable();
         const tbody = document.getElementById('reportTableBody');
         if (!tbody) return;
 
+        const year = parseInt(document.getElementById('reportYearSelect').value);
+        const month = parseInt(document.getElementById('reportMonthSelect').value);
+        const weekNum = parseInt(document.getElementById('reportWeekSelect').value || 1);
         const fUnit = document.getElementById('reportUnitFilter').value;
-        const filtered = workProgramList.filter(w => fUnit === 'ALL' || w.unit === fUnit);
 
-        tbody.innerHTML = filtered.map(w => `
-            <tr>
-                <td><b>${w.unit}</b></td>
-                <td>${dayNames[w.dayIndex] || '-'}</td>
-                <td>${w.timeStr || '-'}</td>
-                <td>${w.title}</td>
-                <td><span class="user-badge" style="background:${w.status==='DONE'?'var(--success)':(w.status==='PROGRESS'?'var(--accent)':'var(--warning)')};">${w.status==='DONE'?'Tamamlandı':(w.status==='PROGRESS'?'Devam Ediyor':'Planlandı')}</span></td>
-            </tr>
-        `).join('') || `<tr><td colspan="5" style="text-align:center;">Görev kaydı bulunmuyor.</td></tr>`;
+        const filtered = workProgramList.filter(w => {
+            let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
+            let matchUnit = (fUnit === 'ALL' || w.unit === fUnit);
+            return matchWeek && matchUnit;
+        });
+
+        tbody.innerHTML = filtered.map(w => {
+            let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
+            let dayStr = dayObj ? dayObj.fullLabel : `${w.dayIndex}. Gün`;
+            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
+
+            return `
+                <tr>
+                    <td><b>${w.unit}</b></td>
+                    <td>${dayStr}</td>
+                    <td>${w.timeStr || '-'}</td>
+                    <td>${w.title}</td>
+                    <td>${statusLabel}</td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen hafta için görev kaydı bulunmuyor.</td></tr>`;
+
+        renderReportPersonnelTable();
     }
 
-    // OTURUM KONTROLÜ İLE BAŞLATMA
-    document.addEventListener('DOMContentLoaded', () => {
+    window.onload = function() {
         const savedSession = localStorage.getItem('activeSession');
         if (savedSession) {
             try {
@@ -2234,10 +2395,10 @@
                 document.getElementById('mainApp').classList.remove('hidden');
                 setupSessionUI();
             } catch (e) {
-                console.error("Oturum yükleme hatası", e);
+                localStorage.removeItem('activeSession');
             }
         }
-    });
+    };
 </script>
 </body>
 </html>
