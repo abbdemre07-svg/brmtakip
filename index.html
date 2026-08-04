@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Demre Bld. Reklam Takip ve Birim Sistemi (Mobil)</title>
+    <title>Birim ve Personel Takip Sistemi (Mobil)</title>
     <!-- Firebase SDK v9 Modüler CDN Kütüphaneleri -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -14,7 +14,7 @@
         :root {
             --bg-color: #f1f5f9;
             --card-bg: #ffffff;
-            --primary: #0f172a; /* Dark navy blue */
+            --primary: #1e293b;
             --accent: #0284c7;
             --danger: #ef4444;
             --success: #22c55e;
@@ -29,7 +29,7 @@
 
         #loginOverlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.98); display: flex;
+            background: rgba(30, 41, 59, 0.98); display: flex;
             justify-content: center; align-items: center; z-index: 9999; padding: 20px;
         }
         .login-card {
@@ -41,7 +41,6 @@
         header {
             background: var(--primary); color: white; padding: 12px 15px;
             border-radius: 10px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;
-            border: 1px solid rgba(255,255,255,0.1);
         }
         header h2 { font-size: 1.1rem; text-align: center; }
 
@@ -180,7 +179,7 @@
 <!-- GİRİŞ EKRANI -->
 <div id="loginOverlay">
     <div class="login-card">
-        <h2>📱 Demre Bld. Reklam Takip</h2>
+        <h2>📱 Mobil Sistem Girişi</h2>
         <form id="loginForm">
             <div class="form-group" style="margin-bottom: 12px;">
                 <label>Kullanıcı Adı</label>
@@ -197,7 +196,7 @@
 
 <div class="container hidden" id="mainApp">
     <header>
-        <h2 id="headerTitle">Demre Bld. Reklam Takip ve Birim Sistemi</h2>
+        <h2 id="headerTitle">Birim ve Personel Takip</h2>
         <div class="nav-tabs">
             <button class="tab-btn active" onclick="switchTab('weeklyTab', event)">📅 Haftalık Program</button>
             <button class="tab-btn" onclick="switchTab('leaveTab', event)">📄 İzinler</button>
@@ -802,7 +801,7 @@
 </div>
 
 <script>
-    // Firebase Bağlantı Bilgileri
+    // Firebase Bağlantı Bilgileri[cite: 3]
     const firebaseConfig = {
         apiKey: "AIzaSyAgkhSSmd7Fb1ifMlvP0-innMoCWPRVQfA",
         authDomain: "brt07-aa890.firebaseapp.com",
@@ -946,6 +945,7 @@
             updateVehicleFilterDropdowns();
             populateVehicleDriverDropdown();
             
+            // Haftalık ve Rapor hafta seçeneklerini ayarla
             populateWeekDropdowns('workYearSelect', 'workMonthSelect', 'workWeekNumSelect');
             populateWeekDropdowns('reportYearSelect', 'reportMonthSelect', 'reportWeekSelect');
             
@@ -958,6 +958,7 @@
     const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     const dayNames = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
+    // Dinamik Takvim Haftası Hesaplayıcı (Ayın günlerine göre kaç hafta varsa ve tarihlerini üretir)
     function populateWeekDropdowns(yearSelectId, monthSelectId, weekSelectId) {
         const yEl = document.getElementById(yearSelectId);
         const mEl = document.getElementById(monthSelectId);
@@ -1004,7 +1005,7 @@
         const weekNum = parseInt(document.getElementById('workWeekNumSelect').value || 1);
 
         let viewingUnit = (currentUser && currentUser.role === 'ADMIN') ? document.getElementById('activeViewingUnit').value : (currentUser ? currentUser.unit : 'Sistem');
-        let titlePrefix = viewingUnit === 'ALL' ? 'Demre Bld. Reklam Takip' : viewingUnit;
+        let titlePrefix = viewingUnit === 'ALL' ? 'Tüm Birimler' : viewingUnit;
         const matrixTitle = document.getElementById('matrixBoardTitle');
         if(matrixTitle) matrixTitle.innerText = `📅 ${titlePrefix} - ${monthNames[monthIndex]} ${year} (${weekNum}. Hafta)`;
 
@@ -1267,7 +1268,7 @@
             document.getElementById('tabAddUnitBtn').classList.remove('hidden');
             document.getElementById('tabAddTitleBtn').classList.remove('hidden');
             document.getElementById('adminUnitSelectorCardWrap').classList.remove('hidden');
-            headerTitle.innerText = "Demre Bld. Reklam Takip - Yönetim Paneli";
+            headerTitle.innerText = "Merkez Yönetim - Birim Programları";
             document.getElementById('workFormCard').classList.remove('hidden');
         } else {
             statusBadge.innerText = `🏢 ${currentUser.unit}`;
@@ -1277,7 +1278,7 @@
             document.getElementById('tabAddUnitBtn').classList.add('hidden');
             document.getElementById('tabAddTitleBtn').classList.add('hidden');
             document.getElementById('adminUnitSelectorCardWrap').classList.add('hidden');
-            headerTitle.innerText = `Demre Bld. Reklam Takip - ${currentUser.unit}`;
+            headerTitle.innerText = `${currentUser.unit} - Haftalık Çalışma Programı`;
             document.getElementById('workFormCard').classList.remove('hidden');
             
             const subeInput = document.getElementById('vehSubeMud');
@@ -1621,12 +1622,12 @@
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
-        let headerTxt = `DEMRE BLD. REKLAM TAKIP - HAFTALIK CALISMA PROGRAMI RAPORU - ${monthNames[month]} ${year} (${weekNum}. Hafta)`;
+        let headerTxt = `HAFTALIK CALISMA PROGRAMI RAPORU - ${monthNames[month]} ${year} (${weekNum}. Hafta)`;
         doc.text(turkishToEnglish(headerTxt), 14, 12);
 
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        doc.text(turkishToEnglish("Olusturma Tarihi: " + new Date().toLocaleDateString('tr-TR') + " | Birim: " + (viewingUnit === 'ALL' ? 'Tum Birimler' : viewingUnit)), 14, 17);
+        doc.text(turkishToEnglish("Olusturma Tarihi: " + new Date().toLocaleDateString('tr-TR') + " | Birim: " + (viewingUnit === 'ALL' ? 'Tumlu Birimler' : viewingUnit)), 14, 17);
 
         const headers = [
             ["Birim", "Gun", "Saat", "Gorev / Aciklama", "Durumu"]
@@ -1653,7 +1654,7 @@
             startY: 21,
             theme: 'grid',
             styles: { fontSize: 8.5, cellPadding: 3, font: 'helvetica', overflow: 'linebreak' },
-            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
             alternateRowStyles: { fillColor: [245, 247, 250] },
             columnStyles: {
                 0: { cellWidth: 45 },
@@ -1664,7 +1665,7 @@
             }
         });
 
-        doc.save(`Demre_Bld_Reklam_Haftalik_Rapor_${monthNames[month]}_${year}_Hafta_${weekNum}.pdf`);
+        doc.save(`Haftalik_Calisma_Raporu_${monthNames[month]}_${year}_Hafta_${weekNum}.pdf`);
     }
 
     function exportWeeklyProgramToExcel() {
@@ -1697,7 +1698,7 @@
         let link = document.createElement("a");
         let url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", `Demre_Bld_Reklam_Haftalik_Rapor_${monthNames[month]}_${year}_Hafta_${weekNum}.xls`);
+        link.setAttribute("download", `Haftalik_Calisma_Raporu_${monthNames[month]}_${year}_Hafta_${weekNum}.xls`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1720,143 +1721,6 @@
         if (targetPersonnel.length === 0) {
             sel.innerHTML = `<option value="">Biriminizde kayıtlı personel bulunmuyor</option>`;
         }
-    }
-
-    // İZİN FORMU KAYDETME / GÜNCELLEME İŞLEMLERİ
-    document.getElementById('leaveForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const editId = document.getElementById('leaveEditId').value;
-        const personId = document.getElementById('leavePersonSelect').value;
-        const person = personnelList.find(p => p.id === personId);
-
-        if (!person) {
-            alert("Lütfen geçerli bir personel seçin!");
-            return;
-        }
-
-        const leaveObj = {
-            personId: person.id,
-            personName: person.name,
-            unit: person.unit,
-            leaveType: document.getElementById('leaveType').value,
-            startDate: document.getElementById('startDate').value,
-            endDate: document.getElementById('endDate').value,
-            images: selectedLeaveImageBase64List,
-            updatedAt: new Date().toISOString()
-        };
-
-        try {
-            if (editId) {
-                await db.collection("leaves").doc(editId).update(leaveObj);
-                let idx = leaveList.findIndex(l => l.id === editId);
-                if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
-                alert("İzin kaydı güncellendi!");
-            } else {
-                let docRef = await db.collection("leaves").add(leaveObj);
-                leaveList.push({ id: docRef.id, ...leaveObj });
-                alert("İzin başarıyla kaydedildi!");
-            }
-            resetLeaveForm();
-            renderLeaveTable();
-            updatePersonnelStats();
-        } catch (err) {
-            console.error(err);
-            alert("İzin kaydedilirken hata oluştu!");
-        }
-    });
-
-    function editLeave(id) {
-        const l = leaveList.find(item => item.id === id);
-        if (!l) return;
-
-        document.getElementById('leaveEditId').value = l.id;
-        document.getElementById('leavePersonSelect').value = l.personId || '';
-        document.getElementById('leaveType').value = l.leaveType || 'Yıllık İzin';
-        document.getElementById('startDate').value = l.startDate || '';
-        document.getElementById('endDate').value = l.endDate || '';
-
-        selectedLeaveImageBase64List = l.images ? [...l.images] : [];
-        renderLeaveImagePreviews();
-
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydını Düzenle';
-        document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function resetLeaveForm() {
-        document.getElementById('leaveEditId').value = '';
-        document.getElementById('leaveForm').reset();
-        selectedLeaveImageBase64List = [];
-        document.getElementById('leaveImgPreviewArea').innerHTML = '';
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydı Oluştur';
-        document.getElementById('btnLeaveSubmit').innerText = 'İzni Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
-    }
-
-    async function deleteLeave(id) {
-        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
-        try {
-            await db.collection("leaves").doc(id).delete();
-            leaveList = leaveList.filter(l => l.id !== id);
-            renderLeaveTable();
-            updatePersonnelStats();
-        } catch (err) {
-            alert("Silme işlemi başarısız!");
-        }
-    }
-
-    function renderLeaveTable() {
-        const tbody = document.getElementById('leaveTableBody');
-        const countBadge = document.getElementById('leaveCountBadge');
-        if (!tbody) return;
-
-        const fUnit = document.getElementById('filterLeaveUnit').value;
-        const fType = document.getElementById('filterLeaveType').value;
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const filtered = leaveList.filter(l => {
-            if (currentUser && currentUser.role !== 'ADMIN') {
-                if (!l.unit || l.unit.toLowerCase() !== currentUser.unit.toLowerCase()) {
-                    return false;
-                }
-            }
-            let matchUnit = (fUnit === 'ALL' || l.unit === fUnit);
-            let matchType = true;
-            if (fType === 'TODAY') {
-                matchType = (l.startDate <= todayStr && l.endDate >= todayStr);
-            } else if (fType !== 'ALL') {
-                matchType = (l.leaveType === fType);
-            }
-            return matchUnit && matchType;
-        });
-
-        if (countBadge) countBadge.innerText = filtered.length;
-
-        tbody.innerHTML = filtered.map(l => {
-            let docHtml = '-';
-            if (l.images && l.images.length > 0) {
-                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
-                docHtml = `<div class="img-preview-container">` + l.images.map(img => {
-                    let thumb = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-                    return `<img src="${thumb}" onclick="openImageModal('${img}', ${listStr})">`;
-                }).join('') + `</div>`;
-            }
-
-            return `
-                <tr>
-                    <td><b>${l.personName || '-'}</b></td>
-                    <td>${l.unit || '-'}</td>
-                    <td><span class="user-badge" style="background:var(--accent);">${l.leaveType || '-'}</span></td>
-                    <td>${l.startDate || ''} $\rightarrow$ ${l.endDate || ''}</td>
-                    <td>${docHtml}</td>
-                    <td style="display:flex; gap:4px;">
-                        <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
-                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
-                    </td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
     }
 
     document.getElementById('vehicleForm').addEventListener('submit', async (e) => {
@@ -2030,7 +1894,7 @@
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
-        let titleReportText = currentUser.role === 'ADMIN' ? "DEMRE BLD. REKLAM TAKIP - ARAC ENVANTER RAPORU" : `DEMRE BLD. REKLAM TAKIP - ${currentUser.unit.toUpperCase()} ARAC RAPORU`;
+        let titleReportText = currentUser.role === 'ADMIN' ? "ANTALYA BUYUKSEHIR BELEDIYESI - ARAC ENVANTER RAPORU" : `ANTALYA BUYUKSEHIR BELEDIYESI - ${currentUser.unit.toUpperCase()} ARAC RAPORU`;
         doc.text(turkishToEnglish(titleReportText), 14, 12);
 
         doc.setFontSize(8);
@@ -2058,7 +1922,7 @@
             startY: 21,
             theme: 'grid',
             styles: { fontSize: 7.5, cellPadding: 2, font: 'helvetica', overflow: 'linebreak' },
-            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
             alternateRowStyles: { fillColor: [245, 247, 250] },
             columnStyles: {
                 0: { cellWidth: 28 },
@@ -2072,7 +1936,7 @@
             }
         });
 
-        doc.save("Demre_Bld_Reklam_Arac_Envanter_Raporu.pdf");
+        doc.save("Arac_Envanter_Raporu.pdf");
     }
 
     function exportVehiclesToExcel() {
@@ -2110,7 +1974,7 @@
         let link = document.createElement("a");
         let url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "Demre_Bld_Reklam_Arac_Envanter_Raporu.xls");
+        link.setAttribute("download", "Arac_Envanter_Raporu.xls");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -2138,7 +2002,7 @@
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
-        doc.text(turkishToEnglish("DEMRE BLD. REKLAM TAKIP - PERSONEL LISTESI"), 14, 12);
+        doc.text(turkishToEnglish("ANTALYA BÜYÜKŞEHİR BELEDİYESİ DEMRE HİZMET BİRİMİ PERSONEL LİSTESİ"), 14, 12);
 
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
@@ -2164,7 +2028,7 @@
             startY: 21,
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 3, font: 'helvetica', overflow: 'linebreak' },
-            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+            headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
             alternateRowStyles: { fillColor: [245, 247, 250] },
             columnStyles: {
                 0: { cellWidth: 15 },
@@ -2176,7 +2040,7 @@
             }
         });
 
-        doc.save("Demre_Bld_Reklam_Personel_Raporu.pdf");
+        doc.save("Personel_Filtrelenmis_Rapor.pdf");
     }
 
     function exportPersonnelToExcel() {
@@ -2205,7 +2069,7 @@
         let link = document.createElement("a");
         let url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "Demre_Bld_Reklam_Personel_Raporu.xls");
+        link.setAttribute("download", "Personel_Raporu.xls");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -2279,12 +2143,16 @@
 
     async function deletePersonnel(id) {
         if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
-        await db.collection("personnel").doc(id).delete();
-        personnelList = personnelList.filter(p => p.id !== id);
-        renderPersonnelTable();
-        populatePersonDropdown();
-        populateVehicleDriverDropdown();
-        updatePersonnelStats();
+        try {
+            await db.collection("personnel").doc(id).delete();
+            personnelList = personnelList.filter(p => p.id !== id);
+            renderPersonnelTable();
+            populatePersonDropdown();
+            populateVehicleDriverDropdown();
+            updatePersonnelStats();
+        } catch (err) {
+            alert("Silme başarısız!");
+        }
     }
 
     function renderPersonnelTable() {
@@ -2304,10 +2172,10 @@
 
         tbody.innerHTML = filtered.map(p => `
             <tr>
-                <td><b>${p.name || '-'}</b></td>
-                <td>${p.unit || '-'}</td>
-                <td><span class="user-badge" style="background:var(--accent);">${p.status || '-'}</span></td>
-                <td>${p.title || '-'}</td>
+                <td><b>${p.name}</b></td>
+                <td>${p.unit}</td>
+                <td>${p.status}</td>
+                <td>${p.title}</td>
                 <td>${p.phone || '-'}</td>
                 <td style="display:flex; gap:4px;">
                     <button class="btn-edit" onclick="editPersonnel('${p.id}')">Düzenle</button>
@@ -2323,17 +2191,123 @@
         const isci = personnelList.filter(p => p.status === 'Şirket İşçisi').length;
         const sozlesmeli = personnelList.filter(p => p.status === 'Sözleşmeli').length;
 
-        const todayStr = new Date().toISOString().split('T')[0];
-        const activeLeaves = leaveList.filter(l => l.startDate <= todayStr && l.endDate >= todayStr);
-        const izinde = activeLeaves.filter(l => l.leaveType !== 'Sağlık İzni (Rapor)').length;
-        const raporlu = activeLeaves.filter(l => l.leaveType === 'Sağlık İzni (Rapor)').length;
+        const today = new Date().toISOString().split('T')[0];
+        let izindeCount = 0;
+        let raporluCount = 0;
 
-        if (document.getElementById('statTotal')) document.getElementById('statTotal').innerText = total;
-        if (document.getElementById('statMemur')) document.getElementById('statMemur').innerText = memur;
-        if (document.getElementById('statIsci')) document.getElementById('statIsci').innerText = isci;
-        if (document.getElementById('statSozlesmeli')) document.getElementById('statSozlesmeli').innerText = sozlesmeli;
-        if (document.getElementById('statIzinde')) document.getElementById('statIzinde').innerText = izinde;
-        if (document.getElementById('statRaporlu')) document.getElementById('statRaporlu').innerText = raporlu;
+        leaveList.forEach(l => {
+            if (l.startDate <= today && l.endDate >= today) {
+                if (l.type.includes('Rapor') || l.type.includes('Sağlık')) {
+                    raporluCount++;
+                } else {
+                    izindeCount++;
+                }
+            }
+        });
+
+        document.getElementById('statTotal').innerText = total;
+        document.getElementById('statMemur').innerText = memur;
+        document.getElementById('statIsci').innerText = isci;
+        document.getElementById('statSozlesmeli').innerText = sozlesmeli;
+        document.getElementById('statIzinde').innerText = izindeCount;
+        document.getElementById('statRaporlu').innerText = raporluCount;
+    }
+
+    async function renderLeaveTable() {
+        const tbody = document.getElementById('leaveTableBody');
+        if (!tbody) return;
+
+        const fUnit = document.getElementById('filterLeaveUnit').value;
+        const fType = document.getElementById('filterLeaveType').value;
+        const today = new Date().toISOString().split('T')[0];
+
+        const filtered = leaveList.filter(l => {
+            let p = personnelList.find(x => x.id === l.personId);
+            let pUnit = p ? p.unit : 'Bilinmiyor';
+            
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (pUnit.toLowerCase() !== currentUser.unit.toLowerCase()) return false;
+            }
+
+            let matchUnit = (fUnit === 'ALL' || pUnit === fUnit);
+            let matchType = true;
+
+            if (fType === 'TODAY') {
+                matchType = (l.startDate <= today && l.endDate >= today);
+            } else if (fType !== 'ALL') {
+                matchType = (l.type === fType);
+            }
+
+            return matchUnit && matchType;
+        });
+
+        document.getElementById('leaveCountBadge').innerText = filtered.length;
+
+        tbody.innerHTML = filtered.map(l => {
+            let p = personnelList.find(x => x.id === l.personId);
+            let pName = p ? p.name : 'Bilinmeyen Personel';
+            let pUnit = p ? p.unit : '-';
+
+            let imgBadge = '-';
+            if (l.images && l.images.length > 0) {
+                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
+                imgBadge = `<div class="img-preview-container">` + l.images.map(img => {
+                    let disp = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
+                    return `<img src="${disp}" onclick="openImageModal('${img}', ${listStr})">`;
+                }).join('') + `</div>`;
+            }
+
+            return `
+                <tr>
+                    <td><b>${pName}</b></td>
+                    <td>${pUnit}</td>
+                    <td><span class="user-badge" style="background:var(--warning);">${l.type}</span></td>
+                    <td>${l.startDate} ~ ${l.endDate}</td>
+                    <td>${imgBadge}</td>
+                    <td>
+                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
+    }
+
+    document.getElementById('leaveForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const leaveObj = {
+            personId: document.getElementById('leavePersonSelect').value,
+            type: document.getElementById('leaveType').value,
+            startDate: document.getElementById('startDate').value,
+            endDate: document.getElementById('endDate').value,
+            images: selectedLeaveImageBase64List,
+            createdAt: new Date().toISOString()
+        };
+
+        try {
+            let docRef = await db.collection("leaves").add(leaveObj);
+            leaveList.push({ id: docRef.id, ...leaveObj });
+            alert("İzin başarıyla kaydedildi.");
+            document.getElementById('leaveForm').reset();
+            selectedLeaveImageBase64List = [];
+            document.getElementById('leaveImgPreviewArea').innerHTML = '';
+            renderLeaveTable();
+            updatePersonnelStats();
+        } catch (err) {
+            console.error(err);
+            alert("İzin kaydedilirken hata oluştu!");
+        }
+    });
+
+    async function deleteLeave(id) {
+        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
+        try {
+            await db.collection("leaves").doc(id).delete();
+            leaveList = leaveList.filter(l => l.id !== id);
+            renderLeaveTable();
+            updatePersonnelStats();
+        } catch (err) {
+            alert("Silme başarısız!");
+        }
     }
 
     function renderReportPersonnelTable() {
@@ -2342,36 +2316,37 @@
 
         const fStatus = document.getElementById('reportPersStatusFilter').value;
         const fUnit = document.getElementById('reportUnitFilter').value;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
 
         const filtered = personnelList.filter(p => {
-            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
-            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            if (fUnit !== 'ALL' && p.unit !== fUnit) return false;
 
+            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
+            
             if (fStatus === 'IZINLI') {
-                return matchUnit && activeLeave && activeLeave.leaveType !== 'Sağlık İzni (Rapor)';
+                return activeLeave && !activeLeave.type.includes('Rapor');
             } else if (fStatus === 'RAPORLU') {
-                return matchUnit && activeLeave && activeLeave.leaveType === 'Sağlık İzni (Rapor)';
+                return activeLeave && activeLeave.type.includes('Rapor');
             } else if (fStatus === 'AKTIF') {
-                return matchUnit && !activeLeave;
+                return !activeLeave;
             }
-            return matchUnit;
+            return true;
         });
 
         tbody.innerHTML = filtered.map(p => {
-            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            let statusText = '<span style="color:var(--success); font-weight:bold;">✔ Görevde / Aktif</span>';
+            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
+            let durumHtml = '<span style="color:var(--success); font-weight:bold;">✔ Görevde / Aktif</span>';
             if (activeLeave) {
-                statusText = `<span style="color:var(--danger); font-weight:bold;">📄 ${activeLeave.leaveType} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+                durumHtml = `<span style="color:var(--danger); font-weight:bold;">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
             }
 
             return `
                 <tr>
-                    <td><b>${p.name || '-'}</b></td>
-                    <td>${p.unit || '-'}</td>
-                    <td>${p.status || '-'}</td>
-                    <td>${p.title || '-'}</td>
-                    <td>${statusText}</td>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.unit}</td>
+                    <td>${p.status}</td>
+                    <td>${p.title}</td>
+                    <td>${durumHtml}</td>
                 </tr>
             `;
         }).join('') || `<tr><td colspan="5" style="text-align:center;">Filtreye uygun personel bulunmuyor.</td></tr>`;
@@ -2403,10 +2378,10 @@
                     <td>${dayStr}</td>
                     <td>${w.timeStr || '-'}</td>
                     <td>${w.title}</td>
-                    <td><span style="color:${w.status==='DONE'?'var(--success)':'var(--warning)'}; font-weight:bold;">${statusLabel}</span></td>
+                    <td>${statusLabel}</td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen kriterlere ait görev kaydı bulunmuyor.</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen hafta için görev kaydı bulunmuyor.</td></tr>`;
 
         renderReportPersonnelTable();
     }
@@ -2414,13 +2389,14 @@
     window.onload = function() {
         const savedSession = localStorage.getItem('activeSession');
         if (savedSession) {
-            currentUser = JSON.parse(savedSession);
-            document.getElementById('loginOverlay').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            setupSessionUI();
-        } else {
-            updateUnitDropdowns();
-            updateTitleDropdowns();
+            try {
+                currentUser = JSON.parse(savedSession);
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                setupSessionUI();
+            } catch (e) {
+                localStorage.removeItem('activeSession');
+            }
         }
     };
 </script>
