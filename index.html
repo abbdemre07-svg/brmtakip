@@ -2122,9 +2122,9 @@
 
         document.getElementById('persEditId').value = p.id;
         document.getElementById('newPersName').value = p.name || '';
-        document.getElementById('newPersUnit').value = p.unit || '';
-        document.getElementById('newPersStatus').value = p.status || 'Şirket İşçisi';
-        document.getElementById('newPersTitle').value = p.title || '';
+        document.getElementById('newPersUnit').value = p.unit || unitList[0];
+        document.getElementById('newPersStatus').value = p.status || 'Memur';
+        document.getElementById('newPersTitle').value = p.title || titleList[0];
         document.getElementById('newPersPhone').value = p.phone || '';
 
         document.getElementById('personnelFormTitle').innerText = '👤 Personel Bilgilerini Düzenle';
@@ -2139,20 +2139,6 @@
         document.getElementById('personnelFormTitle').innerText = '👤 Personel Yönetimi (Ekle / Düzenle)';
         document.getElementById('btnPersSubmit').innerText = 'Personel Ekle';
         document.getElementById('btnCancelPersEdit').classList.add('hidden');
-    }
-
-    async function deletePersonnel(id) {
-        if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
-        try {
-            await db.collection("personnel").doc(id).delete();
-            personnelList = personnelList.filter(p => p.id !== id);
-            renderPersonnelTable();
-            populatePersonDropdown();
-            populateVehicleDriverDropdown();
-            updatePersonnelStats();
-        } catch (err) {
-            alert("Silme başarısız!");
-        }
     }
 
     function renderPersonnelTable() {
@@ -2174,7 +2160,7 @@
             <tr>
                 <td><b>${p.name}</b></td>
                 <td>${p.unit}</td>
-                <td>${p.status}</td>
+                <td><span class="user-badge" style="background:${p.status==='Memur'?'var(--accent)':(p.status==='Sözleşmeli'?'var(--warning)':'var(--success)')};">${p.status}</span></td>
                 <td>${p.title}</td>
                 <td>${p.phone || '-'}</td>
                 <td style="display:flex; gap:4px;">
@@ -2182,7 +2168,17 @@
                     <button class="btn-delete" onclick="deletePersonnel('${p.id}')">Sil</button>
                 </td>
             </tr>
-        `).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı personel bulunmuyor.</td></tr>`;
+        `).join('') || `<tr><td colspan="6" style="text-align:center;">Personel bulunmuyor.</td></tr>`;
+    }
+
+    async function deletePersonnel(id) {
+        if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
+        await db.collection("personnel").doc(id).delete();
+        personnelList = personnelList.filter(p => p.id !== id);
+        renderPersonnelTable();
+        populatePersonDropdown();
+        populateVehicleDriverDropdown();
+        updatePersonnelStats();
     }
 
     function updatePersonnelStats() {
@@ -2191,12 +2187,12 @@
         const isci = personnelList.filter(p => p.status === 'Şirket İşçisi').length;
         const sozlesmeli = personnelList.filter(p => p.status === 'Sözleşmeli').length;
 
-        const today = new Date().toISOString().split('T')[0];
+        const todayStr = new Date().toISOString().split('T')[0];
         let izindeCount = 0;
         let raporluCount = 0;
 
         leaveList.forEach(l => {
-            if (l.startDate <= today && l.endDate >= today) {
+            if (l.startDate <= todayStr && l.endDate >= todayStr) {
                 if (l.type.includes('Rapor') || l.type.includes('Sağlık')) {
                     raporluCount++;
                 } else {
@@ -2213,83 +2209,30 @@
         document.getElementById('statRaporlu').innerText = raporluCount;
     }
 
-    async function renderLeaveTable() {
-        const tbody = document.getElementById('leaveTableBody');
-        if (!tbody) return;
-
-        const fUnit = document.getElementById('filterLeaveUnit').value;
-        const fType = document.getElementById('filterLeaveType').value;
-        const today = new Date().toISOString().split('T')[0];
-
-        const filtered = leaveList.filter(l => {
-            let p = personnelList.find(x => x.id === l.personId);
-            let pUnit = p ? p.unit : 'Bilinmiyor';
-            
-            if (currentUser && currentUser.role !== 'ADMIN') {
-                if (pUnit.toLowerCase() !== currentUser.unit.toLowerCase()) return false;
-            }
-
-            let matchUnit = (fUnit === 'ALL' || pUnit === fUnit);
-            let matchType = true;
-
-            if (fType === 'TODAY') {
-                matchType = (l.startDate <= today && l.endDate >= today);
-            } else if (fType !== 'ALL') {
-                matchType = (l.type === fType);
-            }
-
-            return matchUnit && matchType;
-        });
-
-        document.getElementById('leaveCountBadge').innerText = filtered.length;
-
-        tbody.innerHTML = filtered.map(l => {
-            let p = personnelList.find(x => x.id === l.personId);
-            let pName = p ? p.name : 'Bilinmeyen Personel';
-            let pUnit = p ? p.unit : '-';
-
-            let imgBadge = '-';
-            if (l.images && l.images.length > 0) {
-                const listStr = JSON.stringify(l.images).replace(/"/g, '&quot;');
-                imgBadge = `<div class="img-preview-container">` + l.images.map(img => {
-                    let disp = img.startsWith('data:application/pdf') ? 'https://cdn-icons-png.flaticon.com/512/337/337946.png' : img;
-                    return `<img src="${disp}" onclick="openImageModal('${img}', ${listStr})">`;
-                }).join('') + `</div>`;
-            }
-
-            return `
-                <tr>
-                    <td><b>${pName}</b></td>
-                    <td>${pUnit}</td>
-                    <td><span class="user-badge" style="background:var(--warning);">${l.type}</span></td>
-                    <td>${l.startDate} ~ ${l.endDate}</td>
-                    <td>${imgBadge}</td>
-                    <td>
-                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
-                    </td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
-    }
-
     document.getElementById('leaveForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const editId = document.getElementById('leaveEditId').value;
         const leaveObj = {
             personId: document.getElementById('leavePersonSelect').value,
             type: document.getElementById('leaveType').value,
             startDate: document.getElementById('startDate').value,
             endDate: document.getElementById('endDate').value,
             images: selectedLeaveImageBase64List,
-            createdAt: new Date().toISOString()
+            updatedAt: new Date().toISOString()
         };
 
         try {
-            let docRef = await db.collection("leaves").add(leaveObj);
-            leaveList.push({ id: docRef.id, ...leaveObj });
-            alert("İzin başarıyla kaydedildi.");
-            document.getElementById('leaveForm').reset();
-            selectedLeaveImageBase64List = [];
-            document.getElementById('leaveImgPreviewArea').innerHTML = '';
+            if (editId) {
+                await db.collection("leaves").doc(editId).update(leaveObj);
+                let idx = leaveList.findIndex(l => l.id === editId);
+                if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
+                alert("İzin kaydı güncellendi.");
+            } else {
+                let docRef = await db.collection("leaves").add(leaveObj);
+                leaveList.push({ id: docRef.id, ...leaveObj });
+                alert("İzin kaydı oluşturuldu.");
+            }
+            resetLeaveForm();
             renderLeaveTable();
             updatePersonnelStats();
         } catch (err) {
@@ -2298,72 +2241,105 @@
         }
     });
 
-    async function deleteLeave(id) {
-        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
-        try {
-            await db.collection("leaves").doc(id).delete();
-            leaveList = leaveList.filter(l => l.id !== id);
-            renderLeaveTable();
-            updatePersonnelStats();
-        } catch (err) {
-            alert("Silme başarısız!");
-        }
+    function editLeave(id) {
+        const l = leaveList.find(item => item.id === id);
+        if (!l) return;
+
+        document.getElementById('leaveEditId').value = l.id;
+        document.getElementById('leavePersonSelect').value = l.personId;
+        document.getElementById('leaveType').value = l.type;
+        document.getElementById('startDate').value = l.startDate;
+        document.getElementById('endDate').value = l.endDate;
+
+        selectedLeaveImageBase64List = l.images ? [...l.images] : [];
+        renderLeaveImagePreviews();
+
+        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydını Düzenle';
+        document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
+        document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function renderReportPersonnelTable() {
-        const tbody = document.getElementById('reportPersonnelBody');
+    function resetLeaveForm() {
+        document.getElementById('leaveEditId').value = '';
+        document.getElementById('leaveForm').reset();
+        selectedLeaveImageBase64List = [];
+        document.getElementById('leaveImgPreviewArea').innerHTML = '';
+        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydı Oluştur';
+        document.getElementById('btnLeaveSubmit').innerText = 'İzni Kaydet';
+        document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
+    }
+
+    function renderLeaveTable() {
+        const tbody = document.getElementById('leaveTableBody');
         if (!tbody) return;
 
-        const fStatus = document.getElementById('reportPersStatusFilter').value;
-        const fUnit = document.getElementById('reportUnitFilter').value;
-        const today = new Date().toISOString().split('T')[0];
+        const fUnit = document.getElementById('filterLeaveUnit').value;
+        const fType = document.getElementById('filterLeaveType').value;
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        const filtered = personnelList.filter(p => {
-            if (fUnit !== 'ALL' && p.unit !== fUnit) return false;
+        const filtered = leaveList.filter(l => {
+            const p = personnelList.find(item => item.id === l.personId);
+            if (!p) return false;
 
-            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
-            
-            if (fStatus === 'IZINLI') {
-                return activeLeave && !activeLeave.type.includes('Rapor');
-            } else if (fStatus === 'RAPORLU') {
-                return activeLeave && activeLeave.type.includes('Rapor');
-            } else if (fStatus === 'AKTIF') {
-                return !activeLeave;
+            if (currentUser && currentUser.role !== 'ADMIN') {
+                if (p.unit !== currentUser.unit) return false;
+            } else if (fUnit !== 'ALL' && p.unit !== fUnit) {
+                return false;
+            }
+
+            if (fType === 'TODAY') {
+                if (!(l.startDate <= todayStr && l.endDate >= todayStr)) return false;
+            } else if (fType !== 'ALL' && l.type !== fType) {
+                return false;
             }
             return true;
         });
 
-        tbody.innerHTML = filtered.map(p => {
-            let activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= today && l.endDate >= today);
-            let durumHtml = '<span style="color:var(--success); font-weight:bold;">✔ Görevde / Aktif</span>';
-            if (activeLeave) {
-                durumHtml = `<span style="color:var(--danger); font-weight:bold;">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
-            }
+        document.getElementById('leaveCountBadge').innerText = filtered.length;
+
+        tbody.innerHTML = filtered.map(l => {
+            const p = personnelList.find(item => item.id === l.personId);
+            let pName = p ? p.name : 'Bilinmeyen Personel';
+            let pUnit = p ? p.unit : '-';
+            let docIndicator = (l.images && l.images.length > 0) ? `<span class="user-badge" style="background:var(--accent); cursor:pointer;" onclick='openImageModal("${l.images[0]}", ${JSON.stringify(l.images).replace(/"/g, "&quot;")})'>📄 Belge (${l.images.length})</span>` : '-';
 
             return `
                 <tr>
-                    <td><b>${p.name}</b></td>
-                    <td>${p.unit}</td>
-                    <td>${p.status}</td>
-                    <td>${p.title}</td>
-                    <td>${durumHtml}</td>
+                    <td><b>${pName}</b></td>
+                    <td>${pUnit}</td>
+                    <td><span class="user-badge" style="background:${l.type.includes('Rapor')?'var(--danger)':'var(--warning)'};">${l.type}</span></td>
+                    <td>${l.startDate} ~ ${l.endDate}</td>
+                    <td>${docIndicator}</td>
+                    <td style="display:flex; gap:4px;">
+                        <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
+                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
+                    </td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Filtreye uygun personel bulunmuyor.</td></tr>`;
+        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
+    }
+
+    async function deleteLeave(id) {
+        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
+        await db.collection("leaves").doc(id).delete();
+        leaveList = leaveList.filter(l => l.id !== id);
+        renderLeaveTable();
+        updatePersonnelStats();
     }
 
     function renderReportTable() {
-        const tbody = document.getElementById('reportTableBody');
-        if (!tbody) return;
-
         const year = parseInt(document.getElementById('reportYearSelect').value);
         const month = parseInt(document.getElementById('reportMonthSelect').value);
         const weekNum = parseInt(document.getElementById('reportWeekSelect').value || 1);
-        const fUnit = document.getElementById('reportUnitFilter').value;
+        const unitFilter = document.getElementById('reportUnitFilter').value;
+
+        const tbody = document.getElementById('reportTableBody');
+        if (!tbody) return;
 
         const filtered = workProgramList.filter(w => {
             let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
-            let matchUnit = (fUnit === 'ALL' || w.unit === fUnit);
+            let matchUnit = (unitFilter === 'ALL' || w.unit === unitFilter);
             return matchWeek && matchUnit;
         });
 
@@ -2371,7 +2347,6 @@
             let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
             let dayStr = dayObj ? dayObj.fullLabel : `${w.dayIndex}. Gün`;
             let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
-
             return `
                 <tr>
                     <td><b>${w.unit}</b></td>
@@ -2381,9 +2356,51 @@
                     <td>${statusLabel}</td>
                 </tr>
             `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen hafta için görev kaydı bulunmuyor.</td></tr>`;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen kritere ait görev kaydı bulunmuyor.</td></tr>`;
+    }
 
-        renderReportPersonnelTable();
+    function renderReportPersonnelTable() {
+        const unitFilter = document.getElementById('reportUnitFilter').value;
+        const statusFilter = document.getElementById('reportPersStatusFilter').value;
+        const tbody = document.getElementById('reportPersonnelBody');
+        if (!tbody) return;
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const filtered = personnelList.filter(p => {
+            let matchUnit = (unitFilter === 'ALL' || p.unit === unitFilter);
+            if (!matchUnit) return false;
+
+            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+
+            if (statusFilter === 'IZINLI') {
+                return activeLeave && !activeLeave.type.includes('Rapor');
+            } else if (statusFilter === 'RAPORLU') {
+                return activeLeave && activeLeave.type.includes('Rapor');
+            } else if (statusFilter === 'AKTIF') {
+                return !activeLeave;
+            }
+            return true;
+        });
+
+        tbody.innerHTML = filtered.map(p => {
+            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
+            let statusBadgeHtml = `<span class="user-badge" style="background:var(--success);">Aktif / Görevde</span>`;
+            if (activeLeave) {
+                let badgeBg = activeLeave.type.includes('Rapor') ? 'var(--danger)' : 'var(--warning)';
+                statusBadgeHtml = `<span class="user-badge" style="background:${badgeBg};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
+            }
+
+            return `
+                <tr>
+                    <td><b>${p.name}</b></td>
+                    <td>${p.unit}</td>
+                    <td>${p.status}</td>
+                    <td>${p.title}</td>
+                    <td>${statusBadgeHtml}</td>
+                </tr>
+            `;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">Personel bulunamadı.</td></tr>`;
     }
 
     window.onload = function() {
