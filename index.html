@@ -83,6 +83,20 @@
         .btn-excel { background: #16a34a; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-excel:hover { background: #15803d; }
 
+        /* CANLI BİLDİRİM BANNER STİLLERİ */
+        #notificationBanner {
+            position: fixed; top: 20px; right: 20px; z-index: 10000;
+            background: var(--primary); color: white; padding: 15px 20px;
+            border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            border-left: 5px solid var(--accent); display: none; max-width: 350px;
+            animation: slideIn 0.3s ease-out forwards;
+        }
+        #notificationBanner.show { display: block; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
         /* İSTATİSTİK KARTLARI */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 15px; }
         .stat-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; border-left: 4px solid var(--accent); }
@@ -164,6 +178,14 @@
     </style>
 </head>
 <body>
+
+<!-- CANLI BİLDİRİM BANNER -->
+<div id="notificationBanner">
+    <div style="font-weight: bold; font-size: 0.9rem; margin-bottom: 4px;" id="notifTitle">📢 Yeni Program Eklendi!</div>
+    <div style="font-size: 0.8rem;" id="notifBody">Birim yeni bir görev girdi.</div>
+</div>
+
+<!-- SESLİ BİLDİRİM İÇİN AUDIO ELEMENTİ (WEB AUDIO API KULLANILACAK) -->
 
 <!-- RESİM BÜYÜTME MODAL YAPISI -->
 <div id="imageModal">
@@ -801,7 +823,7 @@
 </div>
 
 <script>
-    // Firebase Bağlantı Bilgileri[cite: 3]
+    // Firebase Bağlantı Bilgileri
     const firebaseConfig = {
         apiKey: "AIzaSyAgkhSSmd7Fb1ifMlvP0-innMoCWPRVQfA",
         authDomain: "brt07-aa890.firebaseapp.com",
@@ -825,6 +847,42 @@
     let selectedLeaveImageBase64List = [];
     let weekDaysData = [];
     let currentUser = null;
+
+    // Gerçek zamanlı dinleme için ilk yükleme kontrol bayrağı
+    let isInitialLoad = true;
+
+    // Web Audio API ile Sesli Bildirim Efekti (Harici ses dosyası gerektirmez)
+    function playBeepSound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 notası
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15); // A5 notası
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        } catch (e) {
+            console.error("Ses çalınamadı:", e);
+        }
+    }
+
+    // Ekranda Gözüken Bildirim Banner Gösterimi
+    function showNotificationBanner(title, body) {
+        const banner = document.getElementById('notificationBanner');
+        document.getElementById('notifTitle').innerText = title;
+        document.getElementById('notifBody').innerText = body;
+        banner.classList.add('show');
+        playBeepSound();
+
+        setTimeout(() => {
+            banner.classList.remove('show');
+        }, 5000);
+    }
 
     // RESİM BÜYÜTME VE OK TUŞLARI İLE GEZİNME DEĞİŞKENLERİ
     let currentModalImages = [];
@@ -932,10 +990,6 @@
             leaveList = [];
             leaveSnapshot.forEach(doc => leaveList.push({ id: doc.id, ...doc.data() }));
 
-            const workSnapshot = await db.collection("workProgram").get();
-            workProgramList = [];
-            workSnapshot.forEach(doc => workProgramList.push({ id: doc.id, ...doc.data() }));
-
             const vehSnapshot = await db.collection("vehicles").get();
             vehicleList = [];
             vehSnapshot.forEach(doc => vehicleList.push({ id: doc.id, ...doc.data() }));
@@ -945,10 +999,29 @@
             updateVehicleFilterDropdowns();
             populateVehicleDriverDropdown();
             
-            // Haftalık ve Rapor hafta seçeneklerini ayarla
             populateWeekDropdowns('workYearSelect', 'workMonthSelect', 'workWeekNumSelect');
             populateWeekDropdowns('reportYearSelect', 'reportMonthSelect', 'reportWeekSelect');
             
+            // Gerçek Zamanlı Çalışma Programı Dinleyicisi (Real-time Listener) ve Bildirim Tetikleyicisi
+            db.collection("workProgram").onSnapshot((snapshot) => {
+                workProgramList = [];
+                snapshot.forEach(doc => workProgramList.push({ id: doc.id, ...doc.data() }));
+
+                if (!isInitialLoad) {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === "added") {
+                            const newWork = change.doc.data();
+                            // Eğer bildirimi ekleyen kullanıcı kendi oturum açtığı birim değilse veya admin ise ekranda göster
+                            if (currentUser && (currentUser.role === 'ADMIN' || currentUser.unit !== newWork.unit)) {
+                                showNotificationBanner(`📢 Yeni Görev Eklendi! (${newWork.unit})`, newWork.title);
+                            }
+                        }
+                    });
+                }
+                isInitialLoad = false;
+                renderMatrixTable();
+            });
+
             renderUI();
         } catch (error) {
             console.error("Veri çekme hatası:", error);
@@ -958,7 +1031,6 @@
     const monthNames = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     const dayNames = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
-    // Dinamik Takvim Haftası Hesaplayıcı (Ayın günlerine göre kaç hafta varsa ve tarihlerini üretir)
     function populateWeekDropdowns(yearSelectId, monthSelectId, weekSelectId) {
         const yEl = document.getElementById(yearSelectId);
         const mEl = document.getElementById(monthSelectId);
@@ -1457,18 +1529,16 @@
             title: document.getElementById('workTitle').value.trim(),
             status: document.getElementById('workStatus').value,
             images: selectedImageBase64List,
+            likes: [], // Like özelliği için boş dizi
             updatedAt: new Date().toISOString()
         };
 
         try {
             if (editId) {
                 await db.collection("workProgram").doc(editId).update(workObj);
-                let index = workProgramList.findIndex(w => w.id === editId);
-                if (index !== -1) workProgramList[index] = { id: editId, ...workObj };
                 alert("Görev güncellendi!");
             } else {
-                let docRef = await db.collection("workProgram").add(workObj);
-                workProgramList.push({ id: docRef.id, ...workObj });
+                await db.collection("workProgram").add(workObj);
                 alert("Görev programa eklendi!");
             }
             resetWorkForm();
@@ -1488,6 +1558,31 @@
         document.getElementById('imgPreviewArea').innerHTML = '';
         document.getElementById('btnCancelEdit').classList.add('hidden');
         document.getElementById('workFormTitle').innerText = 'Yeni Görev / Program Ekle';
+    }
+
+    // Haftalık İşlere Like (Beğeni) Atma Fonksiyonu[cite: 1]
+    async function toggleTaskLike(taskId) {
+        if (!currentUser) return;
+        const workItem = workProgramList.find(w => w.id === taskId);
+        if (!workItem) return;
+
+        let likesArray = workItem.likes ? [...workItem.likes] : [];
+        const userIdentifier = currentUser.username;
+
+        if (likesArray.includes(userIdentifier)) {
+            // Beğeniyi geri al
+            likesArray = likesArray.filter(u => u !== userIdentifier);
+        } else {
+            // Beğeni ekle
+            likesArray.push(userIdentifier);
+        }
+
+        try {
+            await db.collection("workProgram").doc(taskId).update({ likes: likesArray });
+        } catch (err) {
+            console.error("Like güncellenemedi:", err);
+            alert("Beğeni işlemi başarısız oldu!");
+        }
     }
 
     function renderMatrixTable() {
@@ -1526,10 +1621,19 @@
                             imgHtml = `<div class="img-preview-container">` + w.images.map(img => `<img src="${img}" onclick="openImageModal('${img}', ${listStr})">`).join('') + `</div>`;
                         }
 
+                        // Like (Beğeni) Bölümü HTML Hazırlığı[cite: 1]
+                        const likesArr = w.likes || [];
+                        const hasLiked = currentUser && likesArr.includes(currentUser.username);
+                        const likeBtnColor = hasLiked ? 'var(--danger)' : '#64748b';
+                        const likeIcon = hasLiked ? '❤️' : '🤍';
+
                         dayTasksHtml += `
                             <div class="task-card status-${w.status}">
                                 <div class="task-time">
                                     <span>🕒 ${w.timeStr || 'Zaman belirtilmedi'}</span>
+                                    <button onclick="toggleTaskLike('${w.id}')" style="background:transparent; border:none; cursor:pointer; font-size:0.85rem; display:flex; align-items:center; gap:2px; color:${likeBtnColor};">
+                                        ${likeIcon} <b>${likesArr.length}</b>
+                                    </button>
                                 </div>
                                 <p><b>${w.title}</b></p>
                                 ${imgHtml}
@@ -1593,8 +1697,6 @@
         if (!confirm("Bu görevi silmek istediğinize emin misiniz?")) return;
         try {
             await db.collection("workProgram").doc(id).delete();
-            workProgramList = workProgramList.filter(w => w.id !== id);
-            renderMatrixTable();
         } catch (err) {
             alert("Silme başarısız!");
         }
@@ -1751,12 +1853,9 @@
         try {
             if (editId) {
                 await db.collection("vehicles").doc(editId).update(vehObj);
-                let idx = vehicleList.findIndex(v => v.id === editId);
-                if (idx !== -1) vehicleList[idx] = { id: editId, ...vehObj };
                 alert("Araç bilgileri güncellendi.");
             } else {
-                let docRef = await db.collection("vehicles").add(vehObj);
-                vehicleList.push({ id: docRef.id, ...vehObj });
+                await db.collection("vehicles").add(vehObj);
                 alert("Araç başarıyla eklendi.");
             }
             resetVehicleForm();
@@ -2078,7 +2177,6 @@
     async function deleteVehicle(id) {
         if (!confirm("Bu araç kaydını silmek istediğinize emin misiniz?")) return;
         await db.collection("vehicles").doc(id).delete();
-        vehicleList = vehicleList.filter(v => v.id !== id);
         updateVehicleFilterDropdowns();
         renderVehicleTable();
     }
@@ -2097,12 +2195,9 @@
         try {
             if (editId) {
                 await db.collection("personnel").doc(editId).update(persObj);
-                let idx = personnelList.findIndex(p => p.id === editId);
-                if (idx !== -1) personnelList[idx] = { id: editId, ...persObj };
                 alert("Personel bilgileri güncellendi.");
             } else {
-                let docRef = await db.collection("personnel").add(persObj);
-                personnelList.push({ id: docRef.id, ...persObj });
+                await db.collection("personnel").add(persObj);
                 alert("Personel eklendi.");
             }
             resetPersonnelForm();
@@ -2116,294 +2211,8 @@
         }
     });
 
-    function editPersonnel(id) {
-        const p = personnelList.find(item => item.id === id);
-        if (!p) return;
-
-        document.getElementById('persEditId').value = p.id;
-        document.getElementById('newPersName').value = p.name || '';
-        document.getElementById('newPersUnit').value = p.unit || unitList[0];
-        document.getElementById('newPersStatus').value = p.status || 'Memur';
-        document.getElementById('newPersTitle').value = p.title || titleList[0];
-        document.getElementById('newPersPhone').value = p.phone || '';
-
-        document.getElementById('personnelFormTitle').innerText = '👤 Personel Bilgilerini Düzenle';
-        document.getElementById('btnPersSubmit').innerText = 'Değişiklikleri Kaydet';
-        document.getElementById('btnCancelPersEdit').classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function resetPersonnelForm() {
-        document.getElementById('persEditId').value = '';
-        document.getElementById('addPersonnelForm').reset();
-        document.getElementById('personnelFormTitle').innerText = '👤 Personel Yönetimi (Ekle / Düzenle)';
-        document.getElementById('btnPersSubmit').innerText = 'Personel Ekle';
-        document.getElementById('btnCancelPersEdit').classList.add('hidden');
-    }
-
-    function renderPersonnelTable() {
-        const tbody = document.getElementById('personnelTableBody');
-        if (!tbody) return;
-
-        const fUnit = document.getElementById('filterPersUnit').value;
-        const fStatus = document.getElementById('filterPersStatus').value;
-        const fTitle = document.getElementById('filterPersTitle').value;
-
-        const filtered = personnelList.filter(p => {
-            let matchUnit = (fUnit === 'ALL' || p.unit === fUnit);
-            let matchStatus = (fStatus === 'ALL' || p.status === fStatus);
-            let matchTitle = (fTitle === 'ALL' || p.title === fTitle);
-            return matchUnit && matchStatus && matchTitle;
-        });
-
-        tbody.innerHTML = filtered.map(p => `
-            <tr>
-                <td><b>${p.name}</b></td>
-                <td>${p.unit}</td>
-                <td><span class="user-badge" style="background:${p.status==='Memur'?'var(--accent)':(p.status==='Sözleşmeli'?'var(--warning)':'var(--success)')};">${p.status}</span></td>
-                <td>${p.title}</td>
-                <td>${p.phone || '-'}</td>
-                <td style="display:flex; gap:4px;">
-                    <button class="btn-edit" onclick="editPersonnel('${p.id}')">Düzenle</button>
-                    <button class="btn-delete" onclick="deletePersonnel('${p.id}')">Sil</button>
-                </td>
-            </tr>
-        `).join('') || `<tr><td colspan="6" style="text-align:center;">Personel bulunmuyor.</td></tr>`;
-    }
-
-    async function deletePersonnel(id) {
-        if (!confirm("Bu personeli silmek istediğinize emin misiniz?")) return;
-        await db.collection("personnel").doc(id).delete();
-        personnelList = personnelList.filter(p => p.id !== id);
-        renderPersonnelTable();
-        populatePersonDropdown();
-        populateVehicleDriverDropdown();
-        updatePersonnelStats();
-    }
-
-    function updatePersonnelStats() {
-        const total = personnelList.length;
-        const memur = personnelList.filter(p => p.status === 'Memur').length;
-        const isci = personnelList.filter(p => p.status === 'Şirket İşçisi').length;
-        const sozlesmeli = personnelList.filter(p => p.status === 'Sözleşmeli').length;
-
-        const todayStr = new Date().toISOString().split('T')[0];
-        let izindeCount = 0;
-        let raporluCount = 0;
-
-        leaveList.forEach(l => {
-            if (l.startDate <= todayStr && l.endDate >= todayStr) {
-                if (l.type.includes('Rapor') || l.type.includes('Sağlık')) {
-                    raporluCount++;
-                } else {
-                    izindeCount++;
-                }
-            }
-        });
-
-        document.getElementById('statTotal').innerText = total;
-        document.getElementById('statMemur').innerText = memur;
-        document.getElementById('statIsci').innerText = isci;
-        document.getElementById('statSozlesmeli').innerText = sozlesmeli;
-        document.getElementById('statIzinde').innerText = izindeCount;
-        document.getElementById('statRaporlu').innerText = raporluCount;
-    }
-
-    document.getElementById('leaveForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const editId = document.getElementById('leaveEditId').value;
-        const leaveObj = {
-            personId: document.getElementById('leavePersonSelect').value,
-            type: document.getElementById('leaveType').value,
-            startDate: document.getElementById('startDate').value,
-            endDate: document.getElementById('endDate').value,
-            images: selectedLeaveImageBase64List,
-            updatedAt: new Date().toISOString()
-        };
-
-        try {
-            if (editId) {
-                await db.collection("leaves").doc(editId).update(leaveObj);
-                let idx = leaveList.findIndex(l => l.id === editId);
-                if (idx !== -1) leaveList[idx] = { id: editId, ...leaveObj };
-                alert("İzin kaydı güncellendi.");
-            } else {
-                let docRef = await db.collection("leaves").add(leaveObj);
-                leaveList.push({ id: docRef.id, ...leaveObj });
-                alert("İzin kaydı oluşturuldu.");
-            }
-            resetLeaveForm();
-            renderLeaveTable();
-            updatePersonnelStats();
-        } catch (err) {
-            console.error(err);
-            alert("İzin kaydedilirken hata oluştu!");
-        }
-    });
-
-    function editLeave(id) {
-        const l = leaveList.find(item => item.id === id);
-        if (!l) return;
-
-        document.getElementById('leaveEditId').value = l.id;
-        document.getElementById('leavePersonSelect').value = l.personId;
-        document.getElementById('leaveType').value = l.type;
-        document.getElementById('startDate').value = l.startDate;
-        document.getElementById('endDate').value = l.endDate;
-
-        selectedLeaveImageBase64List = l.images ? [...l.images] : [];
-        renderLeaveImagePreviews();
-
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydını Düzenle';
-        document.getElementById('btnLeaveSubmit').innerText = 'Değişiklikleri Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function resetLeaveForm() {
-        document.getElementById('leaveEditId').value = '';
-        document.getElementById('leaveForm').reset();
-        selectedLeaveImageBase64List = [];
-        document.getElementById('leaveImgPreviewArea').innerHTML = '';
-        document.getElementById('leaveFormTitle').innerText = 'İzin / Rapor Kaydı Oluştur';
-        document.getElementById('btnLeaveSubmit').innerText = 'İzni Kaydet';
-        document.getElementById('btnCancelLeaveEdit').classList.add('hidden');
-    }
-
-    function renderLeaveTable() {
-        const tbody = document.getElementById('leaveTableBody');
-        if (!tbody) return;
-
-        const fUnit = document.getElementById('filterLeaveUnit').value;
-        const fType = document.getElementById('filterLeaveType').value;
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const filtered = leaveList.filter(l => {
-            const p = personnelList.find(item => item.id === l.personId);
-            if (!p) return false;
-
-            if (currentUser && currentUser.role !== 'ADMIN') {
-                if (p.unit !== currentUser.unit) return false;
-            } else if (fUnit !== 'ALL' && p.unit !== fUnit) {
-                return false;
-            }
-
-            if (fType === 'TODAY') {
-                if (!(l.startDate <= todayStr && l.endDate >= todayStr)) return false;
-            } else if (fType !== 'ALL' && l.type !== fType) {
-                return false;
-            }
-            return true;
-        });
-
-        document.getElementById('leaveCountBadge').innerText = filtered.length;
-
-        tbody.innerHTML = filtered.map(l => {
-            const p = personnelList.find(item => item.id === l.personId);
-            let pName = p ? p.name : 'Bilinmeyen Personel';
-            let pUnit = p ? p.unit : '-';
-            let docIndicator = (l.images && l.images.length > 0) ? `<span class="user-badge" style="background:var(--accent); cursor:pointer;" onclick='openImageModal("${l.images[0]}", ${JSON.stringify(l.images).replace(/"/g, "&quot;")})'>📄 Belge (${l.images.length})</span>` : '-';
-
-            return `
-                <tr>
-                    <td><b>${pName}</b></td>
-                    <td>${pUnit}</td>
-                    <td><span class="user-badge" style="background:${l.type.includes('Rapor')?'var(--danger)':'var(--warning)'};">${l.type}</span></td>
-                    <td>${l.startDate} ~ ${l.endDate}</td>
-                    <td>${docIndicator}</td>
-                    <td style="display:flex; gap:4px;">
-                        <button class="btn-edit" onclick="editLeave('${l.id}')">Düzenle</button>
-                        <button class="btn-delete" onclick="deleteLeave('${l.id}')">Sil</button>
-                    </td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="6" style="text-align:center;">Kayıtlı izin bulunmuyor.</td></tr>`;
-    }
-
-    async function deleteLeave(id) {
-        if (!confirm("Bu izin kaydını silmek istediğinize emin misiniz?")) return;
-        await db.collection("leaves").doc(id).delete();
-        leaveList = leaveList.filter(l => l.id !== id);
-        renderLeaveTable();
-        updatePersonnelStats();
-    }
-
-    function renderReportTable() {
-        const year = parseInt(document.getElementById('reportYearSelect').value);
-        const month = parseInt(document.getElementById('reportMonthSelect').value);
-        const weekNum = parseInt(document.getElementById('reportWeekSelect').value || 1);
-        const unitFilter = document.getElementById('reportUnitFilter').value;
-
-        const tbody = document.getElementById('reportTableBody');
-        if (!tbody) return;
-
-        const filtered = workProgramList.filter(w => {
-            let matchWeek = (w.year === year && w.month === month && w.weekNum === weekNum);
-            let matchUnit = (unitFilter === 'ALL' || w.unit === unitFilter);
-            return matchWeek && matchUnit;
-        });
-
-        tbody.innerHTML = filtered.map(w => {
-            let dayObj = weekDaysData.find(d => d.index === w.dayIndex);
-            let dayStr = dayObj ? dayObj.fullLabel : `${w.dayIndex}. Gün`;
-            let statusLabel = w.status === 'PLAN' ? '⏳ Planlandı' : (w.status === 'PROGRESS' ? '🔄 Devam Ediyor' : '✔ Tamamlandı');
-            return `
-                <tr>
-                    <td><b>${w.unit}</b></td>
-                    <td>${dayStr}</td>
-                    <td>${w.timeStr || '-'}</td>
-                    <td>${w.title}</td>
-                    <td>${statusLabel}</td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Seçilen kritere ait görev kaydı bulunmuyor.</td></tr>`;
-    }
-
-    function renderReportPersonnelTable() {
-        const unitFilter = document.getElementById('reportUnitFilter').value;
-        const statusFilter = document.getElementById('reportPersStatusFilter').value;
-        const tbody = document.getElementById('reportPersonnelBody');
-        if (!tbody) return;
-
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const filtered = personnelList.filter(p => {
-            let matchUnit = (unitFilter === 'ALL' || p.unit === unitFilter);
-            if (!matchUnit) return false;
-
-            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-
-            if (statusFilter === 'IZINLI') {
-                return activeLeave && !activeLeave.type.includes('Rapor');
-            } else if (statusFilter === 'RAPORLU') {
-                return activeLeave && activeLeave.type.includes('Rapor');
-            } else if (statusFilter === 'AKTIF') {
-                return !activeLeave;
-            }
-            return true;
-        });
-
-        tbody.innerHTML = filtered.map(p => {
-            const activeLeave = leaveList.find(l => l.personId === p.id && l.startDate <= todayStr && l.endDate >= todayStr);
-            let statusBadgeHtml = `<span class="user-badge" style="background:var(--success);">Aktif / Görevde</span>`;
-            if (activeLeave) {
-                let badgeBg = activeLeave.type.includes('Rapor') ? 'var(--danger)' : 'var(--warning)';
-                statusBadgeHtml = `<span class="user-badge" style="background:${badgeBg};">${activeLeave.type} (${activeLeave.startDate} - ${activeLeave.endDate})</span>`;
-            }
-
-            return `
-                <tr>
-                    <td><b>${p.name}</b></td>
-                    <td>${p.unit}</td>
-                    <td>${p.status}</td>
-                    <td>${p.title}</td>
-                    <td>${statusBadgeHtml}</td>
-                </tr>
-            `;
-        }).join('') || `<tr><td colspan="5" style="text-align:center;">Personel bulunamadı.</td></tr>`;
-    }
-
-    window.onload = function() {
+    // Sayfa yüklendiğinde oturum kontrolü
+    window.addEventListener('DOMContentLoaded', () => {
         const savedSession = localStorage.getItem('activeSession');
         if (savedSession) {
             try {
@@ -2411,11 +2220,11 @@
                 document.getElementById('loginOverlay').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
                 setupSessionUI();
-            } catch (e) {
+            } catch(e) {
                 localStorage.removeItem('activeSession');
             }
         }
-    };
+    });
 </script>
 </body>
 </html>
